@@ -24,7 +24,7 @@
     <!-- Ambient background lighting -->
     <div class="orb orb-left"></div>
     <div class="orb orb-right"></div>
-    
+
     <!-- Header -->
     <header style="position: relative;">
         <div class="brand-logo" onclick="location.href='../index.html'">
@@ -96,21 +96,24 @@
         <div class="search-wrapper">
             <!-- Filter Dropdowns instead of Search Bar -->
             <div style="display: flex; gap: 0.5rem; flex: 1;">
-                <select id="filter-category" class="search-input" style="flex: 1; border-radius: var(--radius-md); padding-left: 0.5rem; font-size: 0.85rem; color: #475569; font-weight: 500; cursor: pointer; border: 1px solid rgba(0,0,0,0.1); background: white;">
+                <select id="filter-category" class="search-input"
+                    style="flex: 1; border-radius: var(--radius-md); padding-left: 0.5rem; font-size: 0.85rem; color: #475569; font-weight: 500; cursor: pointer; border: 1px solid rgba(0,0,0,0.1); background: white;">
                     <option value="" disabled selected>爭議類別</option>
                     <option value="all">全部類別</option>
                     <option value="investment">投資型商品</option>
                     <option value="insurance">醫療理賠</option>
                     <option value="creditcard">信用卡交易</option>
                 </select>
-                <select id="filter-product" class="search-input" style="flex: 1; border-radius: var(--radius-md); padding-left: 0.5rem; font-size: 0.85rem; color: #475569; font-weight: 500; cursor: pointer; border: 1px solid rgba(0,0,0,0.1); background: white;">
+                <select id="filter-product" class="search-input"
+                    style="flex: 1; border-radius: var(--radius-md); padding-left: 0.5rem; font-size: 0.85rem; color: #475569; font-weight: 500; cursor: pointer; border: 1px solid rgba(0,0,0,0.1); background: white;">
                     <option value="" disabled selected>商品類型</option>
                     <option value="all">全部商品</option>
                     <option value="fund">共同基金</option>
                     <option value="policy">結構型保單</option>
                     <option value="loan">信貸產品</option>
                 </select>
-                <select id="filter-segment" class="search-input" style="flex: 1; border-radius: var(--radius-md); padding-left: 0.5rem; font-size: 0.85rem; color: #475569; font-weight: 500; cursor: pointer; border: 1px solid rgba(0,0,0,0.1); background: white;">
+                <select id="filter-segment" class="search-input"
+                    style="flex: 1; border-radius: var(--radius-md); padding-left: 0.5rem; font-size: 0.85rem; color: #475569; font-weight: 500; cursor: pointer; border: 1px solid rgba(0,0,0,0.1); background: white;">
                     <option value="" disabled selected>客戶分群</option>
                     <option value="all">不限</option>
                     <option value="senior">高齡族群</option>
@@ -129,16 +132,19 @@
     </section>
 
     <!-- Main Dashboard Workspace -->
-    <main id="dashboard-main-content" class="workspace-container" style="display: block; overflow: hidden; padding-right: 0; transition: opacity 0.3s ease;">
+    <main id="dashboard-main-content" class="workspace-container"
+        style="display: block; overflow: hidden; padding-right: 0; transition: opacity 0.3s ease;">
         <div class="dashboard-container">
-            
+
             <!-- Narrative Insight Engine (FR-08) -->
             <div class="insight-hero-card">
                 <div class="insight-title">
                     <svg width="20" height="20" fill="none" stroke="#c5a059" stroke-width="2" viewBox="0 0 24 24">
-                        <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path>
+                        <path
+                            d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83">
+                        </path>
                     </svg>
-                    Narrative Insight 敘事性洞察 (FR-08)
+                    Narrative Insight 敘事性洞察
                 </div>
                 <div id="narrative-insight-text" class="insight-text">
                     請點擊左側「載入分析」以生成最新批次之敘事洞察分析報告...
@@ -147,18 +153,25 @@
 
             <!-- Dash Grid -->
             <div class="dash-grid">
-                
+
                 <!-- Cross-Analysis Dashboard (FR-09) -->
                 <div class="dash-card">
                     <div class="dash-card-header">
-                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-                        跨維度交叉分析矩陣 (FR-09)
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                            viewBox="0 0 24 24">
+                            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                            <polyline points="2 17 12 22 22 17"></polyline>
+                            <polyline points="2 12 12 17 22 12"></polyline>
+                        </svg>
+                        跨維度交叉分析矩陣
                     </div>
                     <div style="overflow-x: auto; margin-top: 0.5rem;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: center;">
                             <thead>
                                 <tr>
-                                    <th style="border-bottom: 2px solid #e2e8f0; padding: 6px; text-align: left; color: var(--text-muted);">商品 × 法規 \ 風險</th>
+                                    <th
+                                        style="border-bottom: 2px solid #e2e8f0; padding: 6px; text-align: left; color: var(--text-muted);">
+                                        商品 × 法規 \ 風險</th>
                                     <th style="border-bottom: 2px solid #e2e8f0; padding: 6px; color: #ef4444;">高風險</th>
                                     <th style="border-bottom: 2px solid #e2e8f0; padding: 6px; color: #f59e0b;">中風險</th>
                                     <th style="border-bottom: 2px solid #e2e8f0; padding: 6px; color: #10b981;">低風險</th>
@@ -176,20 +189,36 @@
                 <!-- Compliance Knowledge Graph (FR-10) -->
                 <div class="dash-card">
                     <div class="dash-card-header">
-                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-                        知識探索圖譜 (FR-10)
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                            viewBox="0 0 24 24">
+                            <circle cx="18" cy="5" r="3"></circle>
+                            <circle cx="6" cy="12" r="3"></circle>
+                            <circle cx="18" cy="19" r="3"></circle>
+                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                        </svg>
+                        知識探索圖譜
                     </div>
                     <div id="knowledge-graph" class="network-container">
                         <!-- 由 JS 動態渲染知識圖譜節點與連線 -->
-                        <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #94a3b8; font-size: 0.85rem;">等待資料載入中...</div>
+                        <div
+                            style="display: flex; align-items: center; justify-content: center; height: 100%; color: #94a3b8; font-size: 0.85rem;">
+                            等待資料載入中...</div>
                     </div>
                 </div>
 
                 <!-- Case Intelligence -->
                 <div class="dash-card dash-card-full">
                     <div class="dash-card-header">
-                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                        Case Intelligence (案件智能指標)
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                            viewBox="0 0 24 24">
+                            <path
+                                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                            </path>
+                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                        </svg>
+                        案件智能指標
                     </div>
                     <div class="metrics-grid">
                         <div class="metric-item">
@@ -198,7 +227,8 @@
                         </div>
                         <div class="metric-item">
                             <span class="metric-label">最高風險佔比商品</span>
-                            <span id="metric-high-risk-product" class="metric-value" style="font-size: 1.4rem; padding-top: 0.35rem;">--</span>
+                            <span id="metric-high-risk-product" class="metric-value"
+                                style="font-size: 1.4rem; padding-top: 0.35rem;">--</span>
                         </div>
                         <div class="metric-item">
                             <span class="metric-label">單案平均爭議涉案金額</span>
