@@ -963,6 +963,70 @@ header {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
 }
 
+/* ============================================================
+   Markdown Content Styling (Chat Bubbles & Narrative Insight)
+   ============================================================ */
+.message-bubble ul, .chat-bubble ul, .narrative-insight ul,
+.message-bubble ol, .chat-bubble ol, .narrative-insight ol,
+#narrative-insight-text ul, #narrative-insight-text ol {
+  padding-left: 1.5rem;
+  margin-top: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+.message-bubble li, .chat-bubble li, .narrative-insight li, #narrative-insight-text li {
+  margin-bottom: 0.35rem;
+  line-height: 1.6;
+}
+
+.message-bubble blockquote, .chat-bubble blockquote, .narrative-insight blockquote, #narrative-insight-text blockquote {
+  border-left: 4px solid var(--accent-gold);
+  padding-left: 1rem;
+  margin-left: 0;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-muted);
+  background: rgba(197, 160, 89, 0.05);
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-radius: 0 4px 4px 0;
+}
+
+.message-bubble pre, .chat-bubble pre, .narrative-insight pre, #narrative-insight-text pre {
+  background: #1e293b;
+  color: #f8fafc;
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  margin: 0.75rem 0;
+  font-family: 'ui-monospace', 'Menlo', 'Consolas', monospace;
+  font-size: 0.85rem;
+}
+
+.message-bubble code, .chat-bubble code, .narrative-insight code, #narrative-insight-text code {
+  background: rgba(0, 0, 0, 0.06);
+  color: #d97706;
+  padding: 0.15rem 0.3rem;
+  border-radius: 4px;
+  font-family: 'ui-monospace', 'Menlo', 'Consolas', monospace;
+  font-size: 0.85em;
+}
+
+.message-bubble pre code, .chat-bubble pre code, .narrative-insight pre code, #narrative-insight-text pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.message-bubble p, .chat-bubble p, .narrative-insight p, #narrative-insight-text p {
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+.message-bubble p:last-child, .chat-bubble p:last-child, .narrative-insight p:last-child, #narrative-insight-text p:last-child {
+  margin-bottom: 0;
+}
+
 .prompt-chip:hover {
   background: #FFFFFF;
   border-color: var(--accent-gold);
