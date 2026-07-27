@@ -745,3 +745,89 @@ function getMockData(category, product, segment, volume = '10') {
         }
     };
 }
+
+// ============================================================
+// 8. 匯出分析報告 (Export Report)
+// ============================================================
+function triggerExport() {
+    // 建立動態 Toast 提示
+    let toast = document.getElementById('analytical-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'analytical-toast';
+        toast.style.cssText = 'position:fixed; top:20px; right:20px; background:#1e3a8a; color:white; padding:12px 24px; border-radius:8px; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.15); opacity:0; transition:opacity 0.3s; font-family:"Inter", sans-serif; display:flex; align-items:center; gap:8px;';
+        toast.innerHTML = '<span>📄 報告生成中...</span>';
+        document.body.appendChild(toast);
+    }
+    
+    toast.innerHTML = '<span>📄 報告生成中，請稍候...</span>';
+    toast.style.opacity = '1';
+
+    setTimeout(() => {
+        // 抓取當前畫面的數據
+        const category = document.getElementById('filter-category').options[document.getElementById('filter-category').selectedIndex].text;
+        const product = document.getElementById('filter-product').options[document.getElementById('filter-product').selectedIndex].text;
+        const segment = document.getElementById('filter-segment').options[document.getElementById('filter-segment').selectedIndex].text;
+        
+        const narrativeEl = document.getElementById('narrative-insight-text');
+        const narrative = narrativeEl ? narrativeEl.innerText : '無資料';
+
+        const matrixBody = document.getElementById('matrix-tbody');
+        let matrixText = '| 商品/法條 | 高風險 | 中風險 | 低風險 |\n|---|---|---|---|\n';
+        if (matrixBody) {
+            const rows = matrixBody.querySelectorAll('tr');
+            rows.forEach(tr => {
+                const cols = tr.querySelectorAll('td');
+                if (cols.length === 4) {
+                    matrixText += `| ${cols[0].innerText.replace(/\n/g, ' ')} | ${cols[1].innerText} | ${cols[2].innerText} | ${cols[3].innerText} |\n`;
+                }
+            });
+        }
+
+        const avgLaw = document.getElementById('metric-avg-law') ? document.getElementById('metric-avg-law').innerText : '';
+        const highRiskProd = document.getElementById('metric-high-risk-product') ? document.getElementById('metric-high-risk-product').innerText : '';
+
+        // 組裝 Markdown 報告
+        const reportContent = `# 📊 合規風險批次分析報告
+
+**產出時間**：${new Date().toLocaleString()}
+**篩選條件**：
+- 爭議類別：${category}
+- 涉案商品：${product}
+- 客戶分群：${segment}
+
+---
+
+## 📌 關鍵風險指標 (KPIs)
+- **平均引用法條數**：${avgLaw}
+- **最高風險商品**：${highRiskProd}
+
+---
+
+## 📝 AI 敘事洞察 (Narrative Insight)
+${narrative}
+
+---
+
+## 📈 風險交叉分析矩陣
+${matrixText}
+
+---
+*本報告由 Gemini Enterprise AI 自動生成。*
+`;
+
+        // 觸發下載
+        const blob = new Blob([reportContent], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Batch_Analysis_Report_${new Date().getTime()}.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        toast.innerHTML = '<span>✅ 報告下載完成！</span>';
+        setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+    }, 1000);
+}

@@ -841,38 +841,87 @@ function checkSubmit(e) {
   }
 }
 
-// Trigger PDF Export simulation
+// Trigger Markdown Export for Single Case Workbench
 function triggerExport() {
   if (!activeCaseId) {
-    alert('請先載入案件。');
+    alert('請先載入案件才能匯出分析報告。');
     return;
   }
   const toast = document.getElementById('toast-notify');
-  toast.style.display = 'block';
+  if (toast) {
+    toast.innerHTML = '<span>📄 報告生成中，請稍候...</span>';
+    toast.style.display = 'block';
+  }
 
   setTimeout(() => {
-    toast.style.display = 'none';
+    if (toast) toast.style.display = 'none';
 
-    // Export file simulated
     const matchedCase = caseDb[activeCaseId];
-    const exportData = {
-      exportType: 'Compliance Analysis Report',
-      caseId: matchedCase.id,
-      applicant: matchedCase.applicant,
-      type: matchedCase.type,
-      summaryPoints: matchedCase.summary,
-      lawsCited: matchedCase.laws.map(l => l.title),
-      generatedAt: new Date().toLocaleString()
-    };
+    
+    // 抓取聊天室的實際對話紀錄
+    let chatHistory = '';
+    const chatScroller = document.getElementById('chat-scroller');
+    if (chatScroller) {
+        const bubbles = chatScroller.querySelectorAll('.chat-bubble');
+        bubbles.forEach(bubble => {
+            const isUser = bubble.classList.contains('user');
+            const text = bubble.innerText || '';
+            if (isUser) {
+                chatHistory += `\n**[使用者提問]**\n${text}\n`;
+            } else {
+                chatHistory += `\n**[AI 合規精靈回覆]**\n${text}\n`;
+            }
+        });
+    }
+    
+    if (!chatHistory.trim()) {
+        chatHistory = "*(本案件目前無 AI 分析紀錄)*";
+    }
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    // 組裝 Markdown 報告
+    const reportContent = `# 🏛️ 單案合規分析處置報告 (稽核底稿)
+
+**產出時間**：${new Date().toLocaleString()}
+**案件編號**：${matchedCase.id}
+**申訴人**：${matchedCase.applicant}
+**案件類型**：${matchedCase.type}
+
+---
+
+## 📌 案件摘要
+${matchedCase.summary.map(s => `- ${s}`).join('\n')}
+
+---
+
+## ⚖️ 潛在違反法規
+${matchedCase.laws.map(l => `- **${l.title}**\n  *${l.desc}*`).join('\n')}
+
+---
+
+## 💬 AI 深度分析與處置建議軌跡
+${chatHistory}
+
+---
+*本稽核底稿由 Gemini Enterprise AI 輔助生成，請交由法務人員進行最終覆核。*
+`;
+
+    // 觸發 Markdown 下載
+    const blob = new Blob([reportContent], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Compliance_Report_${matchedCase.id}.json`;
+    a.download = `Case_Audit_Report_${matchedCase.id}.md`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, 1500);
+    
+    if (toast) {
+        toast.innerHTML = '<span>✅ 報告下載完成！</span>';
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 2000);
+    }
+  }, 1000);
 }
 
 function scrollChatToBottom() {
