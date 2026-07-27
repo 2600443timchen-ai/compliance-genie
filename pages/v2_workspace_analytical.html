@@ -119,6 +119,13 @@
                     <option value="senior">高齡族群</option>
                     <option value="vip">高資產客戶</option>
                 </select>
+                <select id="filter-volume" class="search-input"
+                    style="flex: 1; border-radius: var(--radius-md); padding-left: 0.5rem; font-size: 0.85rem; color: #475569; font-weight: 500; cursor: pointer; border: 1px solid rgba(0,0,0,0.1); background: white;">
+                    <option value="" disabled selected>分析筆數</option>
+                    <option value="10">近10筆</option>
+                    <option value="50">近50筆</option>
+                    <option value="100">全部</option>
+                </select>
             </div>
             <button id="load-analysis-btn" class="search-btn" onclick="loadBatchAnalysis()">
                 <span>載入分析</span>
@@ -242,7 +249,7 @@
     </main>
 
     <script src="../js/config.js?v=2"></script>
-    <script src="../js/workspace_analytical.js?v=1"></script>
+    <script src="../js/workspace_analytical_improve.js"></script>
 </body>
 
 </html>
