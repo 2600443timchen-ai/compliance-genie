@@ -36,7 +36,7 @@ async function loadBatchAnalysis() {
     const product = document.getElementById('filter-product').value || 'all';
     const segment = document.getElementById('filter-segment').value || 'all';
 
-    const promptText = `請針對目前選定的條件（爭議類別: ${category}, 商品: ${product}, 客戶分群: ${segment}）分析最新批次案件。請提供敘事洞察摘要、風險交叉分析數據、以及法規知識圖譜關聯。`;
+    const promptText = `請針對目前選定的條件（爭議類別: ${category}, 商品: ${product}, 客戶分群: ${segment}）分析最新批次案件。請提供敘事洞察摘要、風險交叉分析數據、以及法規知識圖譜關聯。請盡可能回傳 JSON 格式，結構包含: {"narrative": "...", "matrix": [{"product": "...", "law": "...", "highRisk": 10, "medRisk": 5, "lowRisk": 2}], "lawGraph": [{"law": "...", "obligations": [], "consequences": [], "cases": []}], "riskData": {"level": "...", "violations": [], "cases": []}, "metrics": {"avgLaw": "3.1", "highRiskProduct": "...", "avgAmount": "NT$ ..."}}`;
 
     console.log("送出分析條件:", promptText);
     setLoadingState(true);
@@ -90,6 +90,8 @@ async function loadBatchAnalysis() {
             if (aiData.narrative) mockBase.narrative = aiData.narrative;
             if (aiData.lawGraph) mockBase.lawGraph = aiData.lawGraph;
             if (aiData.riskData) mockBase.riskData = aiData.riskData;
+            if (aiData.matrix) mockBase.matrix = aiData.matrix;
+            if (aiData.metrics) mockBase.metrics = aiData.metrics;
             console.log("✅ AI 結構化數據已解析成功，使用真實 AI 分析結果");
         } else if (latestResult) {
             // AI 回傳了文字但不是 JSON → 當作 narrative
@@ -159,6 +161,28 @@ function tryParseAiJson(text) {
             level: rawRisk['合規風險等級'] || rawRisk.level || '中',
             violations: rawRisk['常見違規態樣'] || rawRisk.violations || [],
             cases: rawRisk['賠償責任參考比例'] || rawRisk.cases || []
+        };
+    }
+
+    // Matrix (FR-09)
+    const rawMatrix = obj['交叉分析矩陣'] || obj.matrix || null;
+    if (Array.isArray(rawMatrix)) {
+        result.matrix = rawMatrix.map(item => ({
+            product: item['商品'] || item.product || '',
+            law: item['法條'] || item.law || '',
+            highRisk: item['高風險'] || item.highRisk || 0,
+            medRisk: item['中風險'] || item.medRisk || 0,
+            lowRisk: item['低風險'] || item.lowRisk || 0
+        }));
+    }
+
+    // Metrics (FR-09)
+    const rawMetrics = obj['風險指標'] || obj.metrics || null;
+    if (rawMetrics) {
+        result.metrics = {
+            avgLaw: rawMetrics['平均引用法條數'] || rawMetrics.avgLaw || '',
+            highRiskProduct: rawMetrics['最高風險商品'] || rawMetrics.highRiskProduct || '',
+            avgAmount: rawMetrics['平均爭議金額'] || rawMetrics.avgAmount || ''
         };
     }
 

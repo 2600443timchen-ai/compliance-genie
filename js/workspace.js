@@ -119,9 +119,24 @@ const caseDb = {
 caseDb['C-20231015-001'] = caseDb['C001'];
 caseDb['C-20231102-005'] = caseDb['C002'];
 
+async function fetchVectorKnowledge() {
+  try {
+    const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/list`, {
+      headers: getApiHeaders()
+    });
+    const data = await response.json();
+    if (data.status === 1 && data.knowledge) {
+      vectorKnowledgeFiles = data.knowledge;
+    }
+  } catch (err) {
+    console.warn("無法取得雲端知識庫檔案，保留本地狀態", err);
+  }
+}
+
 // Initialize UI on load
-function initApi() {
+async function initApi() {
   initUploadZone();
+  await fetchVectorKnowledge();
   renderLawsSidebar(null);
 }
 
@@ -187,9 +202,37 @@ async function handleFileSelect(e) {
   }
 }
 
-// Handle case file upload and details parsing (純前端本地解析版)
+// Handle case file upload and details parsing (嘗試呼叫真實 API 後備用本地邏輯)
 async function handleFile(file) {
-  appendSystemMessage(`系統偵測到案件檔案：<b>${file.name}</b>。正在本地解析案件資料...`);
+  appendSystemMessage(`系統偵測到案件檔案：<b>${file.name}</b>。正在嘗試上傳至知識庫...`);
+  
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('categories', 'upload');
+    formData.append('labels', 'case');
+    
+    const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/${activeChatId || 'list'}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GEMINI_JWT}`,
+        'x-application-tenant': GEMINI_TENANT
+      },
+      body: formData
+    });
+    
+    if (response.ok) {
+      appendSystemMessage(`檔案 <b>${file.name}</b> 已成功上傳至雲端知識庫！`);
+      await fetchVectorKnowledge(); // Refresh knowledge list
+      renderLawsSidebar(activeCaseId ? caseDb[activeCaseId] : null);
+    } else {
+      throw new Error(`上傳失敗: ${response.status}`);
+    }
+  } catch (err) {
+    console.warn("檔案上傳 API 失敗，退回本地解析模式", err);
+    appendSystemMessage(`⚠️ 雲端上傳失敗，正在進行本地解析...`);
+  }
+
 
   // Fallback local case generation based on file name details
   const caseId = 'C-UPL-' + Math.floor(Math.random() * 90000 + 10000);
@@ -382,6 +425,48 @@ function loadCaseIntoChat(matchedCase) {
   }, 400);
 }
 
+// 嘗試載入真實歷史紀錄
+async function loadChatHistory(matchedCase) {
+  appendSystemMessage(`正在嘗試載入案件 <b>${matchedCase.id}</b> 的雲端歷史紀錄...`);
+  try {
+    const chatID = await getChatId();
+    if (!chatID) throw new Error("No Chat ID");
+    
+    const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
+      headers: getApiHeaders()
+    });
+    
+    if (!response.ok) throw new Error("Fetch messages failed");
+    
+    const data = await response.json();
+    if (data && data.messages && data.messages.length > 0) {
+       document.getElementById('chat-container').innerHTML = '';
+       data.messages.forEach(msg => {
+          if (msg.role === 'user') {
+             appendUserMessage(msg.content);
+          } else if (msg.role === 'assistant') {
+             // Directly append instead of simulate since it's history
+             const stream = document.getElementById('chat-container');
+             const row = document.createElement('div');
+             row.className = 'message-row assistant';
+             row.innerHTML = `
+                <div class="message-avatar">AI</div>
+                <div class="message-bubble">${formatMessageText(msg.content)}</div>
+             `;
+             stream.appendChild(row);
+          }
+       });
+       scrollChatToBottom();
+       return;
+    }
+    // If no messages but success, fallback to initial response
+    throw new Error("No messages in history");
+  } catch (err) {
+    console.warn("無法取得真實歷史紀錄，退回本地歡迎訊息", err);
+    loadCaseIntoChat(matchedCase);
+  }
+}
+
 function formatMessageText(text) {
   if (!text) return '';
   // 如果載入了 marked.js，則使用它來渲染 Markdown（包含表格、粗體、清單等）
@@ -436,8 +521,8 @@ async function triggerSearch() {
     chatContainer.style.display = 'flex';
     chatContainer.innerHTML = '';
 
-    // 純前端：直接顯示 AI 分析歡迎訊息
-    loadCaseIntoChat(matchedCase);
+    // 嘗試從真實 API 載入對話歷史
+    await loadChatHistory(matchedCase);
   } else {
     alert('無此測試案件，請輸入 C001、C002、C003 或 C004 進行試用。');
   }
