@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compliance Genie 合規精靈 - 智能合規工作台</title>
+  <meta name="description" content="AI-Native 金融消費爭議合規工作台 - 搜尋、分析、引法、諮詢一體化解決方案">
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 2L2 7L12 12L22 7L12 2Z' fill='url(%23grad1)' /%3E%3Cpath d='M2 17L12 22L22 17' stroke='url(%23grad2)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' /%3E%3Cpath d='M2 12L12 17L22 12' stroke='url(%23grad2)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' /%3E%3Cdefs%3E%3ClinearGradient id='grad1' x1='2' y1='2' x2='22' y2='12' gradientUnits='userSpaceOnUse'%3E%3Cstop offset='0%25' stop-color='%23C5A059' /%3E%3Cstop offset='100%25' stop-color='%231E3A8A' /%3E%3C/linearGradient%3E%3ClinearGradient id='grad2' x1='2' y1='12' x2='22' y2='22' gradientUnits='userSpaceOnUse'%3E%3Cstop offset='0%25' stop-color='%23C5A059' /%3E%3Cstop offset='100%25' stop-color='%231E3A8A' /%3E%3C/linearGradient%3E%3C/defs%3E%3C/svg%3E">
+
+  <!-- Google Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <!-- Markdown Parser -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- Cache Control for Dev -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
+  <!-- Custom Stylesheets -->
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/workspace.css?v=2.0">
+  <style>
+    /* Segmented Control Styles */
+    .segmented-nav {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.05);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      padding: 3px;
+      border-radius: 20px;
+      gap: 3px;
+      backdrop-filter: blur(10px);
+    }
+
+    .segmented-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: 16px;
+      border: none;
+      background: transparent;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      white-space: nowrap;
+    }
+
+    .segmented-btn:hover {
+      color: #1e293b;
+    }
+
+    .segmented-btn.active {
+      background: #ffffff;
+      color: #1e3a8a;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .badge-new {
+      font-size: 0.65rem;
+      background: linear-gradient(135deg, #c5a059, #b38b40);
+      color: white;
+      padding: 1px 6px;
+      border-radius: 8px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    /* Compact Search Wrapper */
+    .search-wrapper {
+      max-width: 480px !important;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Ambient background lighting -->
+  <div class="orb orb-left"></div>
+  <div class="orb orb-right"></div>
+
+  <!-- Header -->
+  <header style="position: relative;">
+    <div class="brand-logo" onclick="location.href='../index.html'">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="url(#grad1)" />
+        <path d="M2 17L12 22L22 17" stroke="url(#grad2)" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round" />
+        <path d="M2 12L12 17L22 12" stroke="url(#grad2)" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round" />
+        <defs>
+          <linearGradient id="grad1" x1="2" y1="2" x2="22" y2="12" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#C5A059" />
+            <stop offset="100%" stop-color="#1E3A8A" />
+          </linearGradient>
+          <linearGradient id="grad2" x1="2" y1="12" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#C5A059" />
+            <stop offset="100%" stop-color="#1E3A8A" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <h2>Compliance Genie 合規精靈</h2>
+    </div>
+
+    <div class="header-actions">
+      <button class="export-btn" onclick="triggerExport()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span>匯出報告</span>
+      </button>
+      <div class="user-profile">
+        <div class="user-avatar">林</div>
+        <div>
+          <div class="user-name">林專員</div>
+          <div class="user-role">金融合規部</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Search Section -->
+  <section class="search-section" style="position: relative;">
+    <!-- Centered Hero Pill Container (Aligned to search-wrapper top) -->
+    <div class="hero-pill-container"
+      style="position: absolute; left: 50%; top: var(--gap); transform: translateX(-50%); z-index: 10;">
+      <div class="segmented-nav">
+        <button class="segmented-btn active" title="目前視圖：單一案件處置工作台">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+          <span>案件處置工作台</span>
+        </button>
+        <button class="segmented-btn" title="切換至巨觀交叉分析與知識圖譜"
+          onclick="location.href='v2_workspace_analytical_finance.html'">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span>交叉分析與洞察儀表板</span>
+          <span class="badge-new">NEW</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="search-wrapper">
+      <div class="search-input-container">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="case-search" class="search-input" placeholder="輸入案件編號 (如: C001) 或關鍵字...">
+      </div>
+      <button class="search-btn" onclick="triggerSearch()">
+        <span>搜尋</span>
+      </button>
+    </div>
+    <div class="quick-tags">
+      <span>快速試用:</span>
+      <button class="tag-btn" onclick="setSearch('C001')">C001 (投資型保單)</button>
+      <button class="tag-btn" onclick="setSearch('C002')">C002 (實支實付險)</button>
+    </div>
+  </section>
+
+  <!-- Main Workspace Grid -->
+  <main class="workspace-container">
+
+    <!-- Sidebar: Case Info -->
+    <aside class="case-sidebar">
+      <div class="sidebar-title">案件資訊</div>
+
+      <!-- Empty sidebar state (Interactive Uploader & Creator) -->
+      <div id="sidebar-empty" style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;">
+
+        <!-- Drag & Drop Zone -->
+        <div class="upload-dropzone" id="upload-zone" onclick="document.getElementById('case-file-input').click()">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z">
+            </path>
+          </svg>
+          <p>拖曳案件 PDF/CSV 至此上傳</p>
+          <span>或 點擊此處瀏覽檔案</span>
+          <input type="file" id="case-file-input" style="display: none;" accept=".pdf,.csv,.txt"
+            onchange="handleFileSelect(event)">
+        </div>
+
+        <div class="creator-divider">或 手動填寫自訂案件</div>
+
+        <!-- Manual Creator Form -->
+        <div class="manual-case-form">
+          <div class="form-group">
+            <label for="form-applicant">申請人姓名</label>
+            <input type="text" id="form-applicant" placeholder="例如: 王○○（52歲）">
+          </div>
+          <div class="form-group">
+            <label for="form-type">案件類型</label>
+            <select id="form-type">
+              <option value="金融消費爭議 (投資型商品)">金融消費爭議 (投資型商品)</option>
+              <option value="保險理賠爭議 (醫療險)">保險理賠爭議 (醫療險)</option>
+              <option value="信用卡交易爭議">信用卡交易爭議</option>
+              <option value="其他金保爭議">其他金保爭議</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="form-item">爭議要點 / 項目</label>
+            <input type="text" id="form-item" placeholder="例如: 理專涉嫌違反告知義務">
+          </div>
+          <div class="form-group">
+            <label for="form-amount">爭議金額</label>
+            <input type="text" id="form-amount" placeholder="例如: NT$ 150,000">
+          </div>
+          <button class="creator-btn" onclick="createCustomCaseFromForm()">建立並載入案件</button>
+        </div>
+
+      </div>
+
+      <!-- Case Card (populates dynamically) -->
+      <div class="case-details-card" id="sidebar-card">
+        <div class="case-card-header">
+          <div>
+            <div class="case-id-text" id="case-id">-</div>
+            <div class="case-applicant-text">申請人: <span id="case-applicant">-</span></div>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.4rem;">
+            <span class="case-badge" id="case-badge-status">-</span>
+            <button class="reset-workspace-btn" onclick="resetWorkspace()">重設會話 ↺</button>
+          </div>
+        </div>
+
+        <div class="card-divider"></div>
+
+        <div class="info-grid">
+          <div class="info-row">
+            <span class="info-label">案件類型</span>
+            <span class="info-value" id="case-type">-</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">爭議項目</span>
+            <span class="info-value" id="case-item">-</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">爭議金額</span>
+            <span class="info-value" id="case-amount">-</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">建立日期</span>
+            <span class="info-value" id="case-created">-</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">最後更新</span>
+            <span class="info-value" id="case-updated">-</span>
+          </div>
+        </div>
+
+        <div class="card-divider" style="margin: 0.8rem 0; height: 1px; background: rgba(0,0,0,0.08);"></div>
+        <div class="financial-risk-section">
+          <div style="font-size: 0.85rem; font-weight: 600; color: #c5a059; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            財務風險試算 (AI 預估)
+          </div>
+          <div class="info-grid">
+            <div class="info-row">
+              <span class="info-label">建議和解金額區間</span>
+              <span class="info-value" id="risk-settlement" style="color: #f59e0b; font-weight: 600;">等待 AI 試算...</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">主管機關潛在罰鍰</span>
+              <span class="info-value" id="risk-fine" style="color: #ef4444; font-weight: 600;">等待 AI 試算...</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="case-action-btn" onclick="askAiToAnalyzeCase()" style="margin-top: 1rem;">啟動 AI 深度分析</button>
+      </div>
+    </aside>
+
+    <!-- Workspace Columns: AI Chat & Law details -->
+    <section class="ai-workspace">
+
+      <div class="workspace-grid">
+
+        <!-- Chat column -->
+        <div class="chat-section">
+
+          <!-- Chat messages area -->
+          <div class="chat-messages-area" id="chat-scroller">
+            <!-- Welcome instructions (ChatGPT Minimal Style) -->
+            <div class="chat-welcome-state" id="chat-empty"
+              style="max-width: 600px; text-align: center; margin: auto; padding: 3.5rem 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.25rem;">
+              
+              <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, rgba(197, 160, 89, 0.15), rgba(30, 58, 138, 0.15)); display: flex; align-items: center; justify-content: center; margin-bottom: 0.25rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C5A059" stroke-width="2">
+                  <path d="M12 2L2 7L12 12L22 7L12 2Z"></path>
+                  <path d="M2 17L12 22L22 17"></path>
+                  <path d="M2 12L12 17L22 12"></path>
+                </svg>
+              </div>
+
+              <h2 style="font-size: 1.6rem; font-weight: 600; font-family: 'Outfit', sans-serif; color: var(--text-main); margin: 0;">
+                今天想要分析哪件合規爭議？
+              </h2>
+
+              <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.5; margin: 0; max-width: 460px;">
+                請於左側載入測試案件、上傳案卷 PDF，或點擊下方快捷範例啟動 AI 協作。
+              </p>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; width: 100%; max-width: 520px; margin-top: 0.75rem; text-align: left;">
+                <div onclick="setSearch('C001')" style="padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid rgba(0,0,0,0.08); background: rgba(255,255,255,0.6); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--accent-gold)'; this.style.background='#fff'" onmouseout="this.style.borderColor='rgba(0,0,0,0.08)'; this.style.background='rgba(255,255,255,0.6)'">
+                  <div style="font-size: 0.82rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.25rem;">📊 投資型保單告知義務</div>
+                  <div style="font-size: 0.75rem; color: var(--text-muted);">載入 C001 案：保本爭議與適合度分析</div>
+                </div>
+                <div onclick="setSearch('C002')" style="padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid rgba(0,0,0,0.08); background: rgba(255,255,255,0.6); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--accent-gold)'; this.style.background='#fff'" onmouseout="this.style.borderColor='rgba(0,0,0,0.08)'; this.style.background='rgba(255,255,255,0.6)'">
+                  <div style="font-size: 0.82rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.25rem;">🏥 精神科日間住院理賠</div>
+                  <div style="font-size: 0.75rem; color: var(--text-muted);">載入 C002 案：實支實付條款與通融給付</div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Chat Stream Container -->
+            <div class="chat-stream" id="chat-container">
+              <!-- Dynamically populates messages -->
+            </div>
+          </div>
+
+          <!-- Bottom Control Bar (Input Area strictly within Chat Column) -->
+          <footer class="control-section">
+            <!-- Quick prompt tags -->
+            <div class="quick-prompts" id="quick-prompts-bar">
+              <button class="prompt-chip" onclick="useQuickPrompt('預估本案潛在裁罰與財務損失，並提供裁罰金額依據。')">💰 預估潛在裁罰與損失</button>
+              <button class="prompt-chip" onclick="useQuickPrompt('請針對本案進行「訴訟 vs. 和解」之成本效益分析。')">⚖️ 訴訟與和解成本效益分析</button>
+              <button class="prompt-chip" onclick="useQuickPrompt('請針對此案進行合規分析，條列合規與不合規之處。')">🔍 案件合規審查</button>
+            </div>
+
+            <div class="input-wrapper">
+              <div class="prompt-input-container">
+                <textarea id="prompt-input" class="prompt-textarea" placeholder="在此輸入您的合規諮詢或追問問題... (按下 Enter 發送)"
+                  onkeydown="checkSubmit(event)" oninput="autoGrow(this)"></textarea>
+                <button class="send-btn" onclick="handleSendText()" title="發送訊息">
+                  <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </footer>
+
+        </div>
+
+        <!-- Law References / Summary Sidebar -->
+        <aside class="reference-panel">
+
+          <!-- Law Ref Section -->
+          <div class="panel-section">
+            <div class="panel-header" onclick="toggleSection('laws-content', this)">
+              <span>⚖️ 檢索相關法規</span>
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+            <div class="panel-content" id="laws-content">
+              <div class="law-list" id="sidebar-laws-list">
+                <div style="font-size: 0.8rem; color: var(--text-muted);">尚未載入案件相關法規。</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Summary Section -->
+          <div class="panel-section">
+            <div class="panel-header" onclick="toggleSection('summary-content', this)">
+              <span>📝 AI 案件爭議要點</span>
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+            <div class="panel-content" id="summary-content">
+              <div id="sidebar-summary-list" style="font-size: 0.8rem; color: var(--text-muted);">
+                尚未載入案件摘要。
+              </div>
+            </div>
+          </div>
+
+        </aside>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Toast popup -->
+  <div class="toast" id="toast-notify">正在生成 PDF 報告，請稍候...</div>
+
+  <script src="../js/config.js?v=2"></script>
+  <script src="../js/workspace.js?v=3"></script>
+</body>
+
+</html>

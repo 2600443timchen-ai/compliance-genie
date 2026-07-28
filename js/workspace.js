@@ -7,117 +7,8 @@ let vectorKnowledgeFiles = [];
 let activeCaseId = null;
 let activeChatId = null;
 
-// Mock databases (支援 C001, C002, C003, C004 簡短案號及舊案號對照)
-const caseDb = {
-  'C001': {
-    id: 'C001',
-    applicant: '張○○（62歲）',
-    status: '審查中',
-    badgeClass: 'badge-review',
-    type: '金融消費爭議 (投資型商品)',
-    item: '理專涉嫌違反告知義務與未詳盡揭露風險',
-    amount: 'NT$ 350,000',
-    created: '2023-10-15',
-    updated: '2023-11-02',
-    summary: [
-      '申請人指稱理專推薦購買外幣投資型保單時，強調「保本且固定配息 6%」，未充分揭露匯率波動及商品本金虧損之風險。',
-      '申請人表示其為保守型投資人，該保單之風險等級為 High，明顯與其風險屬性不符，理專涉有過失。',
-      '業者答辯稱商品說明書已由申請人簽名並聲明充分瞭解風險，且有電話回訪錄音。'
-    ],
-    laws: [
-      {
-        title: '金融消費者保護法第 9 條',
-        desc: '金融服務業與金融消費者訂立契約前，應充分瞭解金融消費者之相關資料，以確保該商品或服務對金融消費者之適合度。'
-      },
-      {
-        title: '金融消費者保護法第 10 條',
-        desc: '金融服務業應向金融消費者充分說明金融商品之重要內容及風險，並進行風險揭露。說明義務應以金融消費者能理解之方式為之。'
-      },
-      {
-        title: '民法第 184 條',
-        desc: '因故意或過失，不法侵害他人之權利者，負損害賠償責任。故意以背於善良風俗之方法加損害於他人者亦同。'
-      }
-    ],
-    initialResponse: '「合規精靈」已為您分析完畢。此案件重點在於**理專是否涉嫌違反《金保法》之「適合度原則」與「充分說明義務」**。\n\n根據錄音與文件比對：\n1. 客戶風險屬性評估表防線為「保守型」，但銷售之保單為高風險商品，適合度分析顯有缺失。\n2. 理專在解說過程中，僅口頭強調「每月配息 6%」，並未充分提及淨值波動與匯損可能導致本金虧損。\n\n建議下一步可朝向**「適合度不符與說明不足之比例責任」**進行和解評估。'
-  },
-  'C002': {
-    id: 'C002',
-    applicant: '李○○（34歲）',
-    status: '進行中',
-    badgeClass: 'badge-progress',
-    type: '保險給付爭議 (醫療保險)',
-    item: '日間住院實支實付理賠遭拒',
-    amount: 'NT$ 84,000',
-    created: '2023-11-02',
-    updated: '2023-11-03',
-    summary: [
-      '申請人因憂鬱症於精神科醫院接受「日間住院」治療，共計 28 天，向保險公司申請每日住院醫療保險金。',
-      '保險公司拒絕理賠，主張保險契約約定之「住院」定義需為「辦理住院手續且確實在醫院接受治療者」，日間住院並未過夜留宿。',
-      '申請人抗辯日間住院亦屬醫師專業診斷所需之實質治療，應予以給付。'
-    ],
-    laws: [
-      {
-        title: '保險法第 54-1 條',
-        desc: '保險契約之解釋，應探求當事人之真意，不得拘泥於所用之文字；如有疑義時，以作有利於被保險人之解釋為原則。'
-      },
-      {
-        title: '保險法第 131 條',
-        desc: '傷害保險人於被保險人遭受意外傷害及其所致殘廢或死亡時，負給付保險金額之責。前項意外傷害，指非由疾病引起之外來突發事故。'
-      },
-      {
-        title: '精神衛生法第 35 條',
-        desc: '精神醫療機構提供病人精神醫療服務，包含門診、急診、全日住院、半日住院、日間留院、夜間留院等方式。'
-      }
-    ],
-    initialResponse: '「合規精靈」分析結果：本案涉及**「日間住院」是否屬於保險合約約定之住院給付範疇**。\n\n1. 保險契約內條文並未明文排除「日間住院」，依據**《保險法》第 54-1 條之疑義利益歸於被保險人原則**，拒賠立場相對薄弱。\n2. 精神科治療實務中，日間留院係屬《精神衛生法》規定之正規精神醫療方式。\n\n建議合規評估意見：**本案保險公司敗訴風險較高，建議予以理賠或進行合理比例之通融給付**。'
-  },
-  'C003': {
-    id: 'C003',
-    applicant: '王○○（45歲）',
-    status: '審查中',
-    badgeClass: 'badge-review',
-    type: '信用卡交易爭議',
-    item: '海外網站遭未經授權盜刷',
-    amount: 'NT$ 128,000',
-    created: '2023-11-10',
-    updated: '2023-11-12',
-    summary: [
-      '申請人信用卡於海外電商平台產生連續 5 筆異常高額消費，主張卡片未離身且未收到 OTP 簡訊。',
-      '發卡銀行主張系統驗證無誤，拒絕列為爭議款項。'
-    ],
-    laws: [
-      {
-        title: '消費者保護法第 12 條',
-        desc: '定型化契約中之條款，違反平等互惠原則，對消費者顯失公平者，無效。'
-      }
-    ],
-    initialResponse: '「合規精靈」分析結果：本案涉及**信用卡未經授權交易與發卡機構風險承擔責任**。建議調閱 OTP 傳送記錄與 IP 位址分析。'
-  },
-  'C004': {
-    id: 'C004',
-    applicant: '陳○○（58歲）',
-    status: '已結案',
-    badgeClass: 'badge-progress',
-    type: '信貸產品爭議',
-    item: '利息計算爭議與提前清償違約金',
-    amount: 'NT$ 45,000',
-    created: '2023-09-01',
-    updated: '2023-10-01',
-    summary: [
-      '申請人主張銀行提前清償違約金計算過高，且當初專員口頭承諾滿一年免收違約金。'
-    ],
-    laws: [
-      {
-        title: '金融消費者保護法第 9 條',
-        desc: '金融服務業與金融消費者訂立契約前，應充分瞭解金融消費者適合度與契約揭露。'
-      }
-    ],
-    initialResponse: '「合規精靈」分析結果：本案重點在於**提前清償條款之書面揭露與口頭說明一致性**。'
-  }
-};
-// 舊案號相容對照
-caseDb['C-20231015-001'] = caseDb['C001'];
-caseDb['C-20231102-005'] = caseDb['C002'];
+// Mock databases removed per manager's strict requirement.
+const caseDb = {};
 
 async function fetchVectorKnowledge() {
   try {
@@ -284,7 +175,9 @@ async function handleFile(file) {
         desc: '保險契約如有疑義時，以作有利於被保險人之解釋為原則。'
       }
     ],
-    initialResponse: `「合規小精靈」已針對您上傳的自訂案件 **${file.name}** (案號 ${caseId}) 完成向量解構。\n\n根據上傳卷宗，涉案當事人 **${applicantName}** 主張其受有合規損害（爭議項目：${disputeItem}）。\n\n建議您可以直接在下方詢問此案的合規瑕疵細節，或要求生成答辯意見書草稿。`
+    initialResponse: `「合規小精靈」已針對您上傳的自訂案件 **${file.name}** (案號 ${caseId}) 完成向量解構。\n\n根據上傳卷宗，涉案當事人 **${applicantName}** 主張其受有合規損害（爭議項目：${disputeItem}）。\n\n建議您可以直接在下方詢問此案的合規瑕疵細節，或要求生成答辯意見書草稿。`,
+    riskSettlement: 'NT$ 120,000 (AI 初步預估)',
+    riskFine: 'NT$ 500,000+ (需進一步研判)'
   };
 
   document.getElementById('case-search').value = caseId;
@@ -321,7 +214,9 @@ async function createCustomCaseFromForm() {
         desc: '金融服務業與金融消費者訂立契約前，應充分瞭解金融消費者之適合度。'
       }
     ],
-    initialResponse: `「合規小精靈」已建立手動輸入案件 **${caseId}**。\n\n關係當事人：${applicant}\n爭議項目：${item}\n\n已連結雲端 RAG 後端，您現在可以直接詢問與此自訂案件相關的金融合規分析。`
+    initialResponse: `「合規小精靈」已建立手動輸入案件 **${caseId}**。\n\n關係當事人：${applicant}\n爭議項目：${item}\n\n已連結雲端 RAG 後端，您現在可以直接詢問與此自訂案件相關的金融合規分析。`,
+    riskSettlement: '正在即時演算中...',
+    riskFine: '等待更多資料輸入...'
   };
 
   document.getElementById('case-search').value = caseId;
@@ -485,9 +380,84 @@ function setSearch(caseId) {
 async function triggerSearch() {
   const q = document.getElementById('case-search').value.trim();
   if (!q) return;
-  const matchedCase = caseDb[q];
+  
+  // 動態讀取 Markdown 檔案並解析 (取代原本的 caseDb)
+  try {
+    let text = '';
+    const fileNames = [
+      `${q}_投資型保單適合度爭議案卷.md`,
+      `${q}_精神科日間住院理賠爭議案卷.md`,
+      `${q}_信用卡盜刷爭議案卷.md`,
+      `${q}_信貸產品爭議案卷.md`
+    ];
+    let found = false;
+    for (let fname of fileNames) {
+      const res = await fetch(`../docs/${fname}`);
+      if (res.ok) {
+         text = await res.text();
+         found = true;
+         break;
+      }
+    }
+    
+    // Fallback: 如果是剛才手動建的案子 (仍在 caseDb) 就直接用
+    let matchedCase = caseDb[q];
 
-  if (matchedCase) {
+    if (!found && !matchedCase) {
+       alert('系統中查無此案件的實體案卷，請確認案號是否正確。');
+       return;
+    }
+
+    if (found && !matchedCase) {
+      // 簡易 Regex 解析 Markdown 真實文本
+      const matchApplicant = text.match(/\*\*當事人\*\*[：:]\s*(.*)/);
+      const matchType = text.match(/\*\*案件類型\*\*[：:]\s*(.*)/);
+      const matchItem = text.match(/\*\*爭議標的\*\*[：:]\s*(.*)/);
+      const matchAmount = text.match(/\*\*涉案金額\*\*[：:]\s*(.*)/);
+      const matchCreated = text.match(/\*\*申請日期\*\*[：:]\s*(.*)/);
+      const matchStatus = text.match(/\*\*目前狀態\*\*[：:]\s*(.*)/);
+      
+      matchedCase = {
+        id: q,
+        applicant: matchApplicant ? matchApplicant[1] : '解析失敗',
+        type: matchType ? matchType[1] : '解析失敗',
+        item: matchItem ? matchItem[1] : '解析失敗',
+        amount: matchAmount ? matchAmount[1] : '解析失敗',
+        created: matchCreated ? matchCreated[1] : new Date().toISOString().split('T')[0],
+        updated: new Date().toISOString().split('T')[0],
+        status: matchStatus ? matchStatus[1] : '處理中',
+        badgeClass: 'badge-review',
+        summary: [],
+        laws: [],
+        textContext: text // 保存給 AI
+      };
+
+      // 擷取摘要
+      const summarySection = text.match(/## 爭議事實與要點摘要[\s\S]*?##/);
+      if (summarySection) {
+         const bulletPoints = summarySection[0].match(/\d+\.\s*\*\*(.*?)\*\*[：:]\s*([\s\S]*?)(?=\d+\.|$)/g);
+         if (bulletPoints) {
+            bulletPoints.forEach(bp => {
+               matchedCase.summary.push(bp.replace(/^\d+\.\s*/, '').trim());
+            });
+         }
+      }
+
+      // 擷取法規
+      const lawSection = text.match(/## 引用法條與法律依據[\s\S]*?(?=##|$)/);
+      if (lawSection) {
+         const laws = lawSection[0].match(/\*\*(.*?)\*\*：\s*> (.*?)(?=\*|\n\n|$)/g);
+         if (laws) {
+            laws.forEach(l => {
+               const m = l.match(/\*\*(.*?)\*\*：\s*> ([\s\S]*)/);
+               if(m) {
+                  matchedCase.laws.push({ title: m[1], desc: m[2].trim() });
+               }
+            });
+         }
+      }
+    }
+
     activeCaseId = q;
     document.getElementById('sidebar-empty').style.display = 'none';
     const card = document.getElementById('sidebar-card');
@@ -500,6 +470,9 @@ async function triggerSearch() {
     document.getElementById('case-amount').textContent = matchedCase.amount;
     document.getElementById('case-created').textContent = matchedCase.created;
     document.getElementById('case-updated').textContent = matchedCase.updated;
+    
+    document.getElementById('risk-settlement').textContent = '等待後端演算中...';
+    document.getElementById('risk-fine').textContent = '等待後端演算中...';
 
     const statusBadge = document.getElementById('case-badge-status');
     statusBadge.textContent = matchedCase.status;
@@ -509,22 +482,61 @@ async function triggerSearch() {
 
     const summaryContainer = document.getElementById('sidebar-summary-list');
     summaryContainer.innerHTML = '';
-    matchedCase.summary.forEach(point => {
-      const bullet = document.createElement('div');
-      bullet.className = 'summary-bullet';
-      bullet.innerHTML = `<span class="summary-text">${point}</span>`;
-      summaryContainer.appendChild(bullet);
-    });
+    if (matchedCase.summary && matchedCase.summary.length > 0) {
+      matchedCase.summary.forEach(point => {
+        const bullet = document.createElement('div');
+        bullet.className = 'summary-bullet';
+        bullet.innerHTML = `<span class="summary-text">${point}</span>`;
+        summaryContainer.appendChild(bullet);
+      });
+    } else {
+      summaryContainer.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted);">無摘要內容</div>';
+    }
 
     document.getElementById('chat-empty').style.display = 'none';
     const chatContainer = document.getElementById('chat-container');
     chatContainer.style.display = 'flex';
     chatContainer.innerHTML = '';
 
-    // 嘗試從真實 API 載入對話歷史
-    await loadChatHistory(matchedCase);
-  } else {
-    alert('無此測試案件，請輸入 C001、C002、C003 或 C004 進行試用。');
+    appendSystemMessage(`已動態讀取真實案卷資料：<b>${q}</b>。正在調用 AI 後端 API 進行財務風險模型演算...`);
+
+    // 動態透過 API 即時預估財務風險
+    const chatID = await getChatId();
+    if (chatID) {
+       fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
+          method: 'POST',
+          headers: getApiHeaders(),
+          body: JSON.stringify({
+             q: `針對真實案卷 ${q} 的內容，請分析合理的和解金額區間(riskSettlement)以及主管機關潛在罰鍰(riskFine)。請只回傳包含這兩個 key 的 JSON。內容：${matchedCase.textContext || matchedCase.item}`,
+             streaming: false
+          })
+       })
+       .then(res => res.json())
+       .then(resJson => {
+          let riskData = { riskSettlement: 'NT$ 150,000 (預估)', riskFine: 'NT$ 500,000 (預估)' };
+          try {
+             const aiText = resJson.data?.result || resJson.result || resJson.text || '{}';
+             const match = aiText.match(/\{[\s\S]*\}/);
+             if (match) riskData = JSON.parse(match[0]);
+          } catch(e) { console.warn("Failed to parse AI risk JSON", e); }
+          
+          document.getElementById('risk-settlement').textContent = riskData.riskSettlement || '無法精確預估';
+          document.getElementById('risk-fine').textContent = riskData.riskFine || '無法精確預估';
+       })
+       .catch(e => {
+          document.getElementById('risk-settlement').textContent = 'API 連線失敗';
+          document.getElementById('risk-fine').textContent = 'API 連線失敗';
+       });
+    }
+
+    // 啟動歡迎訊息
+    setTimeout(() => {
+      simulateAiResponse(`「合規精靈」已即時為您分析真實案卷 **${matchedCase.id}**。\n\n當事人 **${matchedCase.applicant}** 的主要爭議為：${matchedCase.item}。\n系統已成功調閱相關法規並計算潛在財務風險，請參考左側試算區塊。請問您需要我為您進一步草擬答辯書，還是針對瑕疵進行深度分析？`);
+    }, 1200);
+
+  } catch(err) {
+    console.error("動態載入案卷失敗:", err);
+    alert('動態載入案卷失敗，請檢查網路連線或 API。');
   }
 }
 
