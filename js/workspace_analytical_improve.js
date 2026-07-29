@@ -52,7 +52,7 @@ async function loadBatchAnalysisLegacy() {
                 const chatResponse = await fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
                     method: 'POST',
                     headers: getApiHeaders(),
-                    body: JSON.stringify({ q: promptText, streaming: true })
+                    body: JSON.stringify({ question: promptText, streaming: true })
                 });
                 
                 if (chatResponse.ok) {
@@ -322,7 +322,7 @@ async function loadBatchAnalysis() {
         const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
             method: 'POST',
             headers: getApiHeaders(),
-            body: JSON.stringify({ q: promptText, streaming: true })
+                body: JSON.stringify({ question: promptText, streaming: true })
         });
 
         if (response.ok && response.body) {

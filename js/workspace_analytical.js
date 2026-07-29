@@ -49,7 +49,7 @@ async function loadBatchAnalysis() {
         const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
             method: 'POST',
             headers: getApiHeaders(),
-            body: JSON.stringify({ q: promptText, streaming: true })
+            body: JSON.stringify({ question: promptText, streaming: true })
         });
 
         if (!response.ok) throw new Error(`API 錯誤: ${response.status}`);

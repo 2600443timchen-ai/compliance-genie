@@ -423,7 +423,7 @@ async function triggerSearch() {
           method: 'POST',
           headers: getApiHeaders(),
           body: JSON.stringify({
-             q: `針對真實案卷 ${q} 的內容，請評估可能的「財務風險影響程度」(高/中/低)，並給予一句話建議。不要隨意捏造數字。內容：${matchedCase.textContext || matchedCase.item}`,
+           question: `針對真實案卷 ${q} 的內容，請評估可能的「財務風險影響程度」(高/中/低)，並給予一句話建議。不要隨意捏造數字。內容：${matchedCase.textContext || matchedCase.item}`,
              streaming: false
           })
        })
@@ -659,7 +659,7 @@ async function sendQuestionToApi(questionText) {
       method: 'POST',
       headers: getApiHeaders(),
       body: JSON.stringify({
-        q: caseCtx ? `${caseCtx}${questionText}` : questionText,
+        question: caseCtx ? `${caseCtx}${questionText}` : questionText,
         streaming: true
       })
     });
