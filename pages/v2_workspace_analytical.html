@@ -135,7 +135,10 @@
             <span>最新批次快速篩選:</span>
             <button class="tag-btn" onclick="applyQuickFilter('case_invest')">投資型保單</button>
             <button class="tag-btn" onclick="applyQuickFilter('case_insurance')">實支實付險</button>
+            <label class="tag-btn" style="cursor: pointer;">匯入案件 CSV / JSON<input id="analysis-data-file" type="file" accept=".csv,.json,application/json,text/csv" onchange="importAnalyticsFile(event)" hidden></label>
+            <button class="tag-btn" onclick="downloadAnalyticsTemplate()">下載欄位範本</button>
         </div>
+        <div id="analysis-data-status" style="max-width: 900px; margin: 0.35rem auto 0; font-size: 0.76rem; color: #64748b; text-align: center;">尚未載入案件資料。</div>
     </section>
 
     <!-- Main Dashboard Workspace -->
@@ -233,13 +236,17 @@
                             <span id="metric-avg-law" class="metric-value">--</span>
                         </div>
                         <div class="metric-item">
-                            <span class="metric-label">最高風險佔比商品</span>
+                            <span class="metric-label">最高成立等值風險率商品</span>
                             <span id="metric-high-risk-product" class="metric-value"
                                 style="font-size: 1.4rem; padding-top: 0.35rem;">--</span>
                         </div>
                         <div class="metric-item">
-                            <span class="metric-label">單案平均爭議涉案金額</span>
-                            <span id="metric-avg-amount" class="metric-value">--</span>
+                            <span class="metric-label">成立等值風險率（每萬曝險）</span>
+                            <span id="metric-saved-amount" class="metric-value">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">有證據索引案件 / 分析案件</span>
+                            <span id="metric-traced-cases" class="metric-value">--</span>
                         </div>
                     </div>
                 </div>
@@ -249,6 +256,7 @@
     </main>
 
     <script src="../js/config.js?v=2"></script>
+    <script src="../js/mock_database.js"></script>
     <script src="../js/workspace_analytical_improve.js"></script>
 </body>
 

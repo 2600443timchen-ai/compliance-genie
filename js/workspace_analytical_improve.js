@@ -218,19 +218,103 @@ if (messages.length > 0) {
 // ============================================================
 // 3. 解析 AI 回傳的 JSON（支援多種格式）
 // ============================================================
-// Use the chat response as the source of truth.  The previous implementation
-// guessed a message ID and called endpoints that are not listed in the API spec.
+// ============================================================
+// 3. 確定性資料生成與批次分析
+// ============================================================
+function generateDeterministicData(category, product, segment, volume) {
+    const records = typeof AppDatabase !== 'undefined' ? AppDatabase.queryCases({category, product, segment}).slice(0, Number(volume) || 100) : [];
+    
+    if (records.length === 0) {
+        return {
+            narrative: '無符合條件的案件資料。',
+            matrix: [],
+            lawGraph: [],
+            riskData: { violations: [] },
+            metrics: { avgLaw: '—', highRiskProduct: '—', savedAmount: '—', traced: '—' }
+        };
+    }
+
+    let totalExposure = 0;
+    let totalUpheld = 0;
+    const matrixMap = new Map();
+    const graphsMap = new Map();
+    const violationsMap = new Map();
+    const productMap = new Map();
+    let totalLaws = 0;
+    let tracedCases = 0;
+
+    records.forEach(r => {
+        totalExposure += r.exposureCount || 0;
+        const upheldWeight = r.outcome === 'upheld' ? 1 : (r.outcome === 'partial' ? 0.5 : 0);
+        totalUpheld += upheldWeight;
+        
+        if (r.evidence && r.evidence.length > 0) tracedCases++;
+        totalLaws += (r.regulations || []).length;
+
+        const stat = productMap.get(r.product) || { exposure: 0, upheld: 0, amount: 0 };
+        stat.exposure += r.exposureCount || 0;
+        stat.upheld += upheldWeight;
+        stat.amount += r.disputedAmount || 0;
+        productMap.set(r.product, stat);
+
+        (r.violations || []).forEach(v => violationsMap.set(v, (violationsMap.get(v) || 0) + 1));
+
+        const laws = (r.regulations || []).length ? r.regulations : ['未標註法規'];
+        laws.forEach(law => {
+            const mKey = `${r.product}|${law}`;
+            const mItem = matrixMap.get(mKey) || { product: r.product, law: law, highRisk: 0, medRisk: 0, lowRisk: 0 };
+            if (r.riskLevel === 'high') mItem.highRisk++;
+            else if (r.riskLevel === 'medium') mItem.medRisk++;
+            else mItem.lowRisk++;
+            matrixMap.set(mKey, mItem);
+
+            const gItem = graphsMap.get(law) || { law: law, obligations: [], consequences: [], cases: [] };
+            (r.violations || []).forEach(v => !gItem.obligations.includes(v) && gItem.obligations.push(v));
+            const outcomeLabel = r.outcome === 'upheld' ? '成立' : (r.outcome === 'rejected' ? '不成立' : '處理中');
+            !gItem.consequences.includes(outcomeLabel) && gItem.consequences.push(outcomeLabel);
+            !gItem.cases.some(c => c['編號'] === r.id) && gItem.cases.push({ '編號': r.id });
+            graphsMap.set(law, gItem);
+        });
+    });
+
+    const topProduct = [...productMap.entries()].map(([name, stat]) => ({ name, rate: stat.exposure ? stat.upheld / stat.exposure : 0, amount: stat.amount }))
+        .sort((a, b) => b.rate - a.rate || b.amount - a.amount)[0];
+    
+    const topViolations = [...violationsMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, count]) => `${name}（${count}）`);
+    const rate = totalExposure ? (totalUpheld / totalExposure * 10000).toFixed(2) : 0;
+
+    return {
+        narrative: '',
+        matrix: [...matrixMap.values()].sort((a, b) => b.highRisk - a.highRisk || b.medRisk - a.medRisk),
+        lawGraph: [...graphsMap.values()],
+        riskData: { violations: topViolations },
+        metrics: {
+            avgLaw: (totalLaws / records.length).toFixed(1),
+            highRiskProduct: topProduct ? topProduct.name : '—',
+            savedAmount: records.length ? `${rate} / 萬` : '—', // Used for rate
+            traced: `${tracedCases} / ${records.length}`
+        },
+        _rawContext: `目前最高風險商品為 ${topProduct ? topProduct.name : '無'}，每萬曝險成立等值風險率為 ${rate} 件。主要控制缺口包含：${topViolations.join('、')}。`
+    };
+}
+
 async function loadBatchAnalysis() {
     const category = document.getElementById('filter-category').value || 'all';
     const product = document.getElementById('filter-product').value || 'all';
     const segment = document.getElementById('filter-segment').value || 'all';
-    
     const volumeElement = document.getElementById('filter-volume');
     const volume = volumeElement ? (volumeElement.value || '10') : '10';
 
-    const promptText = `請針對目前選定的條件（爭議類別：${category}、商品：${product}、客戶分群：${segment}）分析近 ${volume} 筆案件的合規風險與適法性。請留意，案件編號（如 C001, C002 等）的數字大小與案件發生的時間先後順序存在高度相關，請基於這 ${volume} 筆案件的編號推演近期的風險趨勢變化。請只回傳有效 JSON，不要使用 Markdown 或額外文字，格式如下：\n{"narrative":"...","matrix":[{"product":"...","law":"...","highRisk":0,"medRisk":0,"lowRisk":0}],"lawGraph":[{"law":"...","obligations":[],"consequences":[],"cases":[]}],"riskData":{"level":"...","violations":[],"cases":[]},"metrics":{"avgLaw":"...","highRiskProduct":"...","avgAmount":"...","savedAmount":"..."}}`;
-
     setLoadingState(true);
+    const dashboardData = generateDeterministicData(category, product, segment, volume);
+
+    if (!dashboardData._rawContext) {
+        renderDashboard(dashboardData);
+        return;
+    }
+
+    const promptText = `請根據以下系統計算出之各維度高風險商品與常見控制缺口，撰寫一段敘事性的合規風險洞察摘要（約100字以內，不要使用 Markdown 列點，請直接寫成一段話）。系統分析數據：${dashboardData._rawContext}`;
+
     try {
         const chatID = await getChatId();
         if (!chatID) throw new Error('No chat is available for analysis.');
@@ -240,132 +324,39 @@ async function loadBatchAnalysis() {
             headers: getApiHeaders(),
             body: JSON.stringify({ q: promptText, streaming: true })
         });
-        if (!response.ok || !response.body) {
-            throw new Error(`Chat API failed: ${response.status}`);
-        }
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let buffer = '';
-        let latestResult = '';
-        for (;;) {
-            const { value, done } = await reader.read();
-            if (value) {
-                buffer += decoder.decode(value, { stream: !done });
-                const lines = buffer.split(/\r?\n/);
-                buffer = lines.pop() || '';
-                for (const rawLine of lines) {
-                    const line = rawLine.trim();
-                    if (!line.startsWith('data:')) continue;
-                    const payload = line.slice(5).trim();
-                    if (!payload || payload === '[DONE]') continue;
-                    try {
-                        const event = JSON.parse(payload);
-                        const result = event.result || event.content || event.text;
-                        if (typeof result === 'string' && result) latestResult = result;
-                    } catch (_) {
-                        // Ignore incomplete/non-JSON SSE events.
+        if (response.ok && response.body) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let latestResult = '';
+            for (;;) {
+                const { value, done } = await reader.read();
+                if (value) {
+                    const chunk = decoder.decode(value, { stream: !done });
+                    const lines = chunk.split(/\r?\n/);
+                    for (const line of lines) {
+                        if (!line.startsWith('data:')) continue;
+                        const payload = line.slice(5).trim();
+                        if (payload && payload !== '[DONE]') {
+                            try {
+                                const event = JSON.parse(payload);
+                                latestResult = event.result || event.content || event.text || latestResult;
+                            } catch (_) {}
+                        }
                     }
                 }
+                if (done) break;
             }
-            if (done) break;
+            if (latestResult) {
+                dashboardData.narrative = latestResult + '\n\n*(此洞察由 AI 根據實際統計數據生成)*';
+            }
         }
-
-        const dashboardData = getMockData(category, product, segment, volume);
-        const aiData = tryParseAiJson(latestResult);
-        if (aiData) {
-            if (aiData.narrative) dashboardData.narrative = aiData.narrative;
-            if (aiData.lawGraph) dashboardData.lawGraph = aiData.lawGraph;
-            if (aiData.riskData) dashboardData.riskData = aiData.riskData;
-            if (aiData.matrix) dashboardData.matrix = aiData.matrix;
-            if (aiData.metrics) dashboardData.metrics = aiData.metrics;
-        } else if (latestResult) {
-            dashboardData.narrative = latestResult;
-            console.warn('Analysis response was not valid dashboard JSON; showing it as narrative text.');
-        }
-        renderDashboard(dashboardData);
     } catch (err) {
-        console.error('Batch analysis failed; displaying the local fallback.', err);
-        renderDashboard(getMockData(category, product, segment, volume));
-    }
-}
-
-function tryParseAiJson(text) {
-    if (!text) return null;
-
-    // 嘗試直接解析
-    let obj = null;
-    try {
-        obj = JSON.parse(text);
-    } catch {
-        // 嘗試提取 ```json ... ``` 內的 JSON
-        const match = text.match(/```json\s*([\s\S]*?)\s*```/);
-        if (match) {
-            try { obj = JSON.parse(match[1]); } catch { /* skip */ }
-        }
-        // 嘗試找第一個 { 到最後一個 }
-        if (!obj) {
-            const start = text.indexOf('{');
-            const end = text.lastIndexOf('}');
-            if (start !== -1 && end > start) {
-                try { obj = JSON.parse(text.substring(start, end + 1)); } catch { /* skip */ }
-            }
-        }
+        console.warn('AI Narrative generation failed, using fallback.', err);
+        dashboardData.narrative = `系統分析完成：${dashboardData._rawContext}`;
     }
 
-    if (!obj || typeof obj !== 'object') return null;
-
-    // 統一對應欄位（AI 可能用中文或英文 key）
-    const result = {};
-
-    // Narrative (FR-08)
-    result.narrative = obj['敘事洞察摘要'] || obj.narrative || obj.summary || null;
-
-    // Law Graph (FR-10)
-    const rawGraph = obj['法規知識圖譜關聯'] || obj.lawGraph || obj.knowledge_graph || null;
-    if (Array.isArray(rawGraph)) {
-        result.lawGraph = rawGraph.map(item => ({
-            law: item['法條'] || item.law || '',
-            obligations: item['重點義務'] || item.obligations || [],
-            consequences: item['違規後果'] || item.consequences || [],
-            cases: item['相關案例'] || item.cases || []
-        })).filter(item => item.law); // 過濾沒有法條的項目
-    }
-
-    // Risk Data (FR-09)
-    const rawRisk = obj['風險交叉分析數據'] || obj.riskData || null;
-    if (rawRisk) {
-        result.riskData = {
-            level: rawRisk['合規風險等級'] || rawRisk.level || '中',
-            violations: rawRisk['常見違規態樣'] || rawRisk.violations || [],
-            cases: rawRisk['賠償責任參考比例'] || rawRisk.cases || []
-        };
-    }
-
-    // Matrix (FR-09)
-    const rawMatrix = obj['交叉分析矩陣'] || obj.matrix || null;
-    if (Array.isArray(rawMatrix)) {
-        result.matrix = rawMatrix.map(item => ({
-            product: item['商品'] || item.product || '',
-            law: item['法條'] || item.law || '',
-            highRisk: item['高風險'] || item.highRisk || 0,
-            medRisk: item['中風險'] || item.medRisk || 0,
-            lowRisk: item['低風險'] || item.lowRisk || 0
-        }));
-    }
-
-    // Metrics (FR-09)
-    const rawMetrics = obj['風險指標'] || obj.metrics || null;
-    if (rawMetrics) {
-        result.metrics = {
-            avgLaw: rawMetrics['平均引用法條數'] || rawMetrics.avgLaw || '',
-            highRiskProduct: rawMetrics['最高風險商品'] || rawMetrics.highRiskProduct || '',
-            avgAmount: rawMetrics['平均爭議金額'] || rawMetrics.avgAmount || '',
-            savedAmount: rawMetrics['潛在裁罰節省'] || rawMetrics.savedAmount || 'NT$ 4,500 萬'
-        };
-    }
-
-    return result;
+    renderDashboard(dashboardData);
 }
 
 // ============================================================
@@ -646,17 +637,18 @@ function renderMetrics(data) {
     if (!data.metrics) return;
     const lawEl = document.getElementById('metric-avg-law');
     const prodEl = document.getElementById('metric-high-risk-product');
-    const savedAmtEl = document.getElementById('metric-saved-amount'); // Fix ID mapping
+    const savedAmtEl = document.getElementById('metric-saved-amount'); // actually rate
+    const tracedEl = document.getElementById('metric-traced-cases'); // 新增
 
-    if (lawEl) lawEl.innerHTML = `${data.metrics.avgLaw} <span style="font-size: 1rem; color: #ef4444; font-weight: 500;">↑ 12%</span>`;
+    if (lawEl) lawEl.innerHTML = `${data.metrics.avgLaw}`;
     if (prodEl) prodEl.innerHTML = data.metrics.highRiskProduct;
-    
-    // Animate the money saved counter
     if (savedAmtEl) {
-        savedAmtEl.innerHTML = `${data.metrics.savedAmount || 'NT$ 4,500 萬'} <span style="font-size: 1rem; color: #10b981; font-weight: 500;">↑ 15%</span>`;
+        savedAmtEl.innerHTML = `${data.metrics.savedAmount}`;
         savedAmtEl.style.animation = 'none';
-        savedAmtEl.offsetHeight; // trigger reflow
-        savedAmtEl.style.animation = 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite';
+        savedAmtEl.style.color = '#10b981';
+    }
+    if (tracedEl) {
+        tracedEl.innerHTML = data.metrics.traced || '—';
     }
 }
 

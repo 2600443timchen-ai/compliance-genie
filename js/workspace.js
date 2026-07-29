@@ -125,63 +125,20 @@ async function handleFile(file) {
   }
 
 
-  // Fallback local case generation based on file name details
-  const caseId = 'C-UPL-' + Math.floor(Math.random() * 90000 + 10000);
-  let applicantName = '陳○○';
-  let disputeItem = '理賠範圍爭議與說明義務瑕疵';
-  let disputeType = '金融消費爭議 (一般商品)';
-
+  // 根據檔名嘗試從資料庫尋找真實案件
   const cleanName = file.name.replace(/\.[^/.]+$/, "");
-  const parts = cleanName.split('_');
-  if (parts.length >= 2) {
-    applicantName = parts[0];
-    disputeItem = parts[1];
-  } else if (cleanName.includes('張')) {
-    applicantName = '張○○';
-  } else if (cleanName.includes('李')) {
-    applicantName = '李○○';
-  } else if (cleanName.includes('王')) {
-    applicantName = '王○○';
+  
+  if (typeof AppDatabase !== 'undefined') {
+    const matchedCase = AppDatabase.getCaseById(cleanName);
+    if (matchedCase) {
+      document.getElementById('case-search').value = matchedCase.id;
+      await triggerSearch();
+      return;
+    }
   }
 
-  if (cleanName.includes('住院') || cleanName.includes('保險') || cleanName.includes('醫療')) {
-    disputeType = '保險給付爭議 (醫療保險)';
-  } else if (cleanName.includes('理專') || cleanName.includes('投資') || cleanName.includes('基金')) {
-    disputeType = '金融消費爭議 (投資型商品)';
-  }
-
-  caseDb[caseId] = {
-    id: caseId,
-    applicant: applicantName,
-    status: '審查中',
-    badgeClass: 'badge-review',
-    type: disputeType,
-    item: disputeItem,
-    amount: 'NT$ 120,000 (預估)',
-    created: new Date().toISOString().split('T')[0],
-    updated: new Date().toISOString().split('T')[0],
-    summary: [
-      `本案為使用者透過文件 [${file.name}] 即時上傳建立。`,
-      `系統已解析檔案，偵測關係人為 [${applicantName}]，涉案核心要點為 [${disputeItem}]。`,
-      `已為本檔案建立對應之雲端協作 RAG Chat 對話工作區。`
-    ],
-    laws: [
-      {
-        title: '金融消費者保護法第 10 條',
-        desc: '金融服務業應向金融消費者充分說明金融商品之重要內容及風險，並進行風險揭露。'
-      },
-      {
-        title: '保險法第 54-1 條',
-        desc: '保險契約如有疑義時，以作有利於被保險人之解釋為原則。'
-      }
-    ],
-    initialResponse: `「合規小精靈」已針對您上傳的自訂案件 **${file.name}** (案號 ${caseId}) 完成向量解構。\n\n根據上傳卷宗，涉案當事人 **${applicantName}** 主張其受有合規損害（爭議項目：${disputeItem}）。\n\n建議您可以直接在下方詢問此案的合規瑕疵細節，或要求生成答辯意見書草稿。`,
-    riskSettlement: 'NT$ 120,000 (AI 初步預估)',
-    riskFine: 'NT$ 500,000+ (需進一步研判)'
-  };
-
-  document.getElementById('case-search').value = caseId;
-  await triggerSearch();
+  // 找不到則阻擋或給予警告 (不主動發明欄位)
+  alert('無法從系統資料庫找到對應的案件 ID。請確保檔名為正確的案件編號（如 C001），或手動建立自訂案件。');
 }
 
 // Create custom case from manual input form
@@ -381,81 +338,40 @@ async function triggerSearch() {
   const q = document.getElementById('case-search').value.trim();
   if (!q) return;
   
-  // 動態讀取 Markdown 檔案並解析 (取代原本的 caseDb)
   try {
-    let text = '';
-    const fileNames = [
-      `${q}_投資型保單適合度爭議案卷.md`,
-      `${q}_精神科日間住院理賠爭議案卷.md`,
-      `${q}_信用卡盜刷爭議案卷.md`,
-      `${q}_信貸產品爭議案卷.md`
-    ];
-    let found = false;
-    for (let fname of fileNames) {
-      const res = await fetch(`../docs/${fname}`);
-      if (res.ok) {
-         text = await res.text();
-         found = true;
-         break;
-      }
-    }
+    let matchedCase = null;
     
-    // Fallback: 如果是剛才手動建的案子 (仍在 caseDb) 就直接用
-    let matchedCase = caseDb[q];
+    // 改為從真實資料庫查詢
+    if (typeof AppDatabase !== 'undefined') {
+        matchedCase = AppDatabase.getCaseById(q);
+    }
 
-    if (!found && !matchedCase) {
+    // Fallback: 如果是剛才手動建的案子 (仍在 caseDb) 就直接用
+    if (!matchedCase && typeof caseDb !== 'undefined' && caseDb[q]) {
+        matchedCase = caseDb[q];
+    }
+
+    if (!matchedCase) {
        alert('系統中查無此案件的實體案卷，請確認案號是否正確。');
        return;
     }
 
-    if (found && !matchedCase) {
-      // 簡易 Regex 解析 Markdown 真實文本
-      const matchApplicant = text.match(/\*\*當事人\*\*[：:]\s*(.*)/);
-      const matchType = text.match(/\*\*案件類型\*\*[：:]\s*(.*)/);
-      const matchItem = text.match(/\*\*爭議標的\*\*[：:]\s*(.*)/);
-      const matchAmount = text.match(/\*\*涉案金額\*\*[：:]\s*(.*)/);
-      const matchCreated = text.match(/\*\*申請日期\*\*[：:]\s*(.*)/);
-      const matchStatus = text.match(/\*\*目前狀態\*\*[：:]\s*(.*)/);
-      
-      matchedCase = {
-        id: q,
-        applicant: matchApplicant ? matchApplicant[1] : '解析失敗',
-        type: matchType ? matchType[1] : '解析失敗',
-        item: matchItem ? matchItem[1] : '解析失敗',
-        amount: matchAmount ? matchAmount[1] : '解析失敗',
-        created: matchCreated ? matchCreated[1] : new Date().toISOString().split('T')[0],
-        updated: new Date().toISOString().split('T')[0],
-        status: matchStatus ? matchStatus[1] : '處理中',
-        badgeClass: 'badge-review',
-        summary: [],
-        laws: [],
-        textContext: text // 保存給 AI
-      };
-
-      // 擷取摘要
-      const summarySection = text.match(/## 爭議事實與要點摘要[\s\S]*?##/);
-      if (summarySection) {
-         const bulletPoints = summarySection[0].match(/\d+\.\s*\*\*(.*?)\*\*[：:]\s*([\s\S]*?)(?=\d+\.|$)/g);
-         if (bulletPoints) {
-            bulletPoints.forEach(bp => {
-               matchedCase.summary.push(bp.replace(/^\d+\.\s*/, '').trim());
-            });
-         }
-      }
-
-      // 擷取法規
-      const lawSection = text.match(/## 引用法條與法律依據[\s\S]*?(?=##|$)/);
-      if (lawSection) {
-         const laws = lawSection[0].match(/\*\*(.*?)\*\*：\s*> (.*?)(?=\*|\n\n|$)/g);
-         if (laws) {
-            laws.forEach(l => {
-               const m = l.match(/\*\*(.*?)\*\*：\s*> ([\s\S]*)/);
-               if(m) {
-                  matchedCase.laws.push({ title: m[1], desc: m[2].trim() });
-               }
-            });
-         }
-      }
+    // 如果是來自 AppDatabase 的格式，稍微轉換一下以符合原本 UI 的需求
+    if (matchedCase && matchedCase.category) {
+        matchedCase = {
+            id: matchedCase.id,
+            applicant: matchedCase.applicant,
+            type: matchedCase.type || matchedCase.category,
+            item: matchedCase.item || matchedCase.violations.join('、'),
+            amount: `NT$ ${matchedCase.disputedAmount.toLocaleString()}`,
+            created: matchedCase.receivedAt,
+            updated: new Date().toISOString().split('T')[0],
+            status: matchedCase.status || '處理中',
+            badgeClass: matchedCase.badgeClass || 'badge-review',
+            summary: matchedCase.violations || [],
+            laws: (matchedCase.regulations || []).map(law => ({ title: law, desc: '相關法規依據' })),
+            textContext: matchedCase.item // 保存給 AI
+        };
     }
 
     activeCaseId = q;
@@ -500,28 +416,33 @@ async function triggerSearch() {
 
     appendSystemMessage(`已動態讀取真實案卷資料：<b>${q}</b>。正在調用 AI 後端 API 進行財務風險模型演算...`);
 
-    // 動態透過 API 即時預估財務風險
+    // 動態透過 API 即時預估財務風險 - 修正為提示而非決策數字
     const chatID = await getChatId();
     if (chatID) {
        fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
           method: 'POST',
           headers: getApiHeaders(),
           body: JSON.stringify({
-             q: `針對真實案卷 ${q} 的內容，請分析合理的和解金額區間(riskSettlement)以及主管機關潛在罰鍰(riskFine)。請只回傳包含這兩個 key 的 JSON。內容：${matchedCase.textContext || matchedCase.item}`,
+             q: `針對真實案卷 ${q} 的內容，請評估可能的「財務風險影響程度」(高/中/低)，並給予一句話建議。不要隨意捏造數字。內容：${matchedCase.textContext || matchedCase.item}`,
              streaming: false
           })
        })
        .then(res => res.json())
        .then(resJson => {
-          let riskData = { riskSettlement: 'NT$ 150,000 (預估)', riskFine: 'NT$ 500,000 (預估)' };
+          let riskData = { riskSettlement: '需人工評估', riskFine: 'AI 輔助評估中' };
           try {
              const aiText = resJson.data?.result || resJson.result || resJson.text || '{}';
-             const match = aiText.match(/\{[\s\S]*\}/);
-             if (match) riskData = JSON.parse(match[0]);
+             // 簡化為非數字呈現，避免誤導
+             riskData.riskSettlement = 'AI 風險警示 (不可作為決策唯一依據)';
+             riskData.riskFine = aiText.substring(0, 30) + '...';
           } catch(e) { console.warn("Failed to parse AI risk JSON", e); }
           
-          document.getElementById('risk-settlement').textContent = riskData.riskSettlement || '無法精確預估';
-          document.getElementById('risk-fine').textContent = riskData.riskFine || '無法精確預估';
+          document.getElementById('risk-settlement').textContent = riskData.riskSettlement;
+          document.getElementById('risk-fine').textContent = riskData.riskFine;
+          
+          // 額外警語 UI
+          document.getElementById('risk-settlement').style.fontSize = '0.75rem';
+          document.getElementById('risk-settlement').style.color = '#ef4444';
        })
        .catch(e => {
           document.getElementById('risk-settlement').textContent = 'API 連線失敗';
