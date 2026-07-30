@@ -6,6 +6,7 @@
 let vectorKnowledgeFiles = [];
 let activeCaseId = null;
 let activeChatId = null;
+let shadowChatId = null;
 
 // Mock databases removed per manager's strict requirement.
 const caseDb = {};
@@ -50,6 +51,28 @@ async function getChatId() {
     console.error("取得 Chat ID 失敗", e);
     return null;
   }
+}
+
+async function getShadowChatId() {
+  if (shadowChatId) return shadowChatId;
+  try {
+    const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/create`, {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify({ title: "Shadow Data Extraction" })
+    });
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data._id) {
+        shadowChatId = data._id;
+        return shadowChatId;
+      }
+    }
+  } catch (e) {
+    console.warn("建立 Shadow Chat 失敗，改用 fallback", e);
+  }
+  // Fallback
+  return await getChatId();
 }
 
 // Automatically grow prompt input textarea based on user input height
@@ -686,47 +709,31 @@ async function handleSendText() {
 }
 
 function extractAndCleanRiskJson(text) {
-    let cleanText = text;
-    let dataExtracted = false;
-
-    // Helper: Find all balanced {...} objects in string
-    function findJsonObjects(str) {
-        let results = [];
-        let startIndex = str.indexOf('{');
-        while (startIndex !== -1) {
-            let braceCount = 0;
-            let endIndex = -1;
-            for (let i = startIndex; i < str.length; i++) {
-                if (str[i] === '{') braceCount++;
-                else if (str[i] === '}') braceCount--;
-                
-                if (braceCount === 0) {
-                    endIndex = i;
-                    break;
-                }
-            }
-            if (endIndex !== -1) {
-                results.push({
-                    raw: str.substring(startIndex, endIndex + 1),
-                    start: startIndex,
-                    end: endIndex
-                });
-                startIndex = str.indexOf('{', endIndex + 1);
-            } else {
-                break; // Unmatched brace, incomplete stream
-            }
-        }
-        return results;
+    // Deprecated for UI streaming: The main stream no longer contains JSON.
+    // We still keep the parsing logic here to be called by the Shadow Stream once.
+    let cleanResult = text;
+    
+    const jsonRegex = /```json\s*(\{[\s\S]*?\})\s*```/g;
+    let match;
+    let matches = [];
+    while ((match = jsonRegex.exec(cleanResult)) !== null) {
+        matches.push(match);
     }
-
-    let possibleJsons = findJsonObjects(cleanText);
-    for (let item of possibleJsons) {
+    
+    const bareJsonRegex = /(\{\s*"(?:settlement|suggested_actions)"[\s\S]*?\})/;
+    const bareMatch = cleanResult.match(bareJsonRegex);
+    if (bareMatch && !matches.find(m => m[0].includes(bareMatch[0]))) {
+        matches.push(bareMatch);
+    }
+    
+    for (const m of matches) {
         try {
-            let data = JSON.parse(item.raw);
-            if (data.settlement || data.fine || data.suggested_actions) {
-                // Update UI elements
-                if (data.settlement) document.getElementById('risk-settlement').textContent = data.settlement;
-                if (data.fine) document.getElementById('risk-fine').textContent = data.fine;
+            const parsedStr = m[1] ? m[1] : m[0];
+            const parsed = JSON.parse(parsedStr);
+            
+            if (parsed.settlement || parsed.fine) {
+                if (parsed.settlement) document.getElementById('risk-settlement').textContent = parsed.settlement;
+                if (parsed.fine) document.getElementById('risk-fine').textContent = parsed.fine;
                 
                 const elSettlement = document.getElementById('risk-settlement');
                 const elFine = document.getElementById('risk-fine');
@@ -743,63 +750,33 @@ function extractAndCleanRiskJson(text) {
                     document.getElementById('risk-confidence-row').style.display = 'flex';
                     document.getElementById('risk-precedent-row').style.display = 'flex';
                 }
-
-                if (data.suggested_actions && Array.isArray(data.suggested_actions)) {
-                    const bar = document.getElementById('quick-prompts-bar');
-                    if (bar) {
-                        bar.innerHTML = '';
-                        data.suggested_actions.forEach((action, idx) => {
-                            const btn = document.createElement('button');
-                            btn.className = 'prompt-chip action-chip';
-                            btn.onclick = () => useQuickPrompt(action.prompt);
-                            btn.textContent = action.label;
-                            const colors = [
-                               { bg: 'rgba(197, 160, 89, 0.15)', text: '#9a7b40', border: 'rgba(197, 160, 89, 0.3)' },
-                               { bg: 'rgba(30, 58, 138, 0.1)', text: '#1e3a8a', border: 'rgba(30, 58, 138, 0.2)' },
-                               { bg: 'rgba(16, 185, 129, 0.1)', text: '#059669', border: 'rgba(16, 185, 129, 0.2)' }
-                            ];
-                            const c = colors[idx % colors.length];
-                            btn.style.background = c.bg;
-                            btn.style.color = c.text;
-                            btn.style.borderColor = c.border;
-                            bar.appendChild(btn);
-                        });
-                    }
+            }
+            
+            if (parsed.suggested_actions && Array.isArray(parsed.suggested_actions)) {
+                const bar = document.getElementById('quick-prompts-bar');
+                if (bar) {
+                    bar.innerHTML = '';
+                    parsed.suggested_actions.forEach((action, idx) => {
+                        const btn = document.createElement('button');
+                        btn.className = 'prompt-chip action-chip';
+                        btn.onclick = () => useQuickPrompt(action.prompt);
+                        btn.textContent = action.label;
+                        const colors = [
+                           { bg: 'rgba(197, 160, 89, 0.15)', text: '#9a7b40', border: 'rgba(197, 160, 89, 0.3)' },
+                           { bg: 'rgba(30, 58, 138, 0.1)', text: '#1e3a8a', border: 'rgba(30, 58, 138, 0.2)' },
+                           { bg: 'rgba(16, 185, 129, 0.1)', text: '#059669', border: 'rgba(16, 185, 129, 0.2)' }
+                        ];
+                        const c = colors[idx % colors.length];
+                        btn.style.background = c.bg;
+                        btn.style.color = c.text;
+                        btn.style.borderColor = c.border;
+                        bar.appendChild(btn);
+                    });
                 }
-
-                // Remove the exact matched JSON block from text
-                cleanText = cleanText.replace(item.raw, '');
-                dataExtracted = true;
             }
         } catch(e) {}
     }
-
-    // Hide incomplete streams (so they don't flicker on screen)
-    let isHiding = false;
-    const openMd = cleanText.match(/```json[\s\S]*$/);
-    if (openMd) {
-        cleanText = cleanText.substring(0, openMd.index);
-        isHiding = true;
-    }
-    const openBare = cleanText.match(/\{[\s\S]*?$/); 
-    if (openBare && (openBare[0].includes('"settlement"') || openBare[0].includes('"fine"') || openBare[0].includes('"suggested_actions"'))) {
-        cleanText = cleanText.substring(0, openBare.index);
-        isHiding = true;
-    }
-
-    // Clean up empty wrappers
-    cleanText = cleanText.replace(/```json/g, '').replace(/```/g, '').trim();
-
-    // Fallback if AI output *only* JSON (empty bubble prevention)
-    if (!cleanText) {
-        if (dataExtracted) {
-            return "✅ 已為您完成深入適法性分析。請參考左側最新的風險評估數據，以及下方的建議行動。";
-        } else if (isHiding) {
-            return "[LOADER]";
-        }
-    }
-
-    return cleanText || "[LOADER]";
+    return cleanResult;
 }
 
 // ============================================================
@@ -834,130 +811,6 @@ async function sendQuestionToApi(questionText) {
 
   // 1. 動態取得 Chat ID
   const chatID = await getChatId();
-  if (!chatID) {
-    bubble.innerHTML = '❌ 錯誤：無法取得有效的對話 ID，請檢查 Token 與權限。';
-    return;
-  }
-
-  const systemOverride = `\n\n(系統強制指令：這是一個新的對話回合，請務必以「專業合規顧問」的角色，使用 Markdown 格式撰寫詳細的文字分析報告或回覆。請【完全解除】先前「不要輸出 JSON 以外任何說明文字」的限制，你現在必須輸出豐富的說明與分析。\n\n【極度重要：介面乾淨度與格式要求】\n1. 您的回覆必須【先】提供完整的文字分析與建議。\n2. 若需輸出財務預估或建議行動，請將 {"settlement": "...", "fine": "...", "suggested_actions": [{"label": "💡", "prompt": "..."}]} 整合成單一 JSON 區塊，並將該區塊放在所有文字的【最底下】。\n3. 絕對不可在 JSON 區塊前後加上「以下是財務風險試算」、「為您建議以下行動」等過渡引言！請讓 JSON 區塊完全無聲無息地附在文末，不可有任何介紹語句，以免破壞系統畫面！)`;
-
-  try {
-    // 2. 直接 POST 到 Portal Chat 端點
-    const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
-      method: 'POST',
-      headers: getApiHeaders(),
-      body: JSON.stringify({
-        q: (caseCtx ? `${caseCtx}${questionText}` : questionText) + systemOverride,
-        streaming: true
-      })
-    });
-
-    // 若 API 回傳 4xx/5xx
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`伺服器錯誤: ${response.status} - ${errText}`);
-    }
-
-    // 若 API 不是回傳 Stream，而是回傳一般的 JSON (如 Chat not found 錯誤)
-    const contentType = response.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
-      const resJson = await response.json();
-      if (resJson.status === 'error' || resJson.error_code) {
-        bubble.innerHTML = `❌ API 錯誤: ${resJson.msg || resJson.code || '未知錯誤'}`;
-        return;
-      }
-    }
-
-    // === SSE 串流解析 ===
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let buffer = '';
-    let latestResult = '';
-    let done = false;
-    let isFirstChunk = true;
-
-    // UI 平滑渲染控制 (打字機特效)
-    let displayIndex = 0;
-    let typingInterval = null;
-
-    while (!done) {
-      const { value, done: readerDone } = await reader.read();
-      done = readerDone;
-
-      if (isFirstChunk && (value || done)) {
-        // 收到第一筆真實串流封包，開始將內容覆寫掉 loader
-        bubble.removeAttribute('id');
-        isFirstChunk = false;
-
-        // 啟動獨立的 UI 打字機渲染循環
-        typingInterval = setInterval(() => {
-          const cleanResult = extractAndCleanRiskJson(latestResult);
-          
-          if (cleanResult === '[LOADER]') {
-            displayIndex = 0;
-            if (!bubble.querySelector('.typing-loader')) {
-                bubble.innerHTML = '<div class="typing-loader"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
-            }
-            scrollChatToBottom();
-            return;
-          }
-
-          if (displayIndex > cleanResult.length) {
-            // 當前清理後的字串變短了 (例如剛好切掉未完成的 JSON)
-            // 將 displayIndex 強制拉回，並立刻更新畫面，確保隱藏的部分從畫面上消失
-            displayIndex = cleanResult.length;
-            bubble.innerHTML = formatMessageText(cleanResult);
-            scrollChatToBottom();
-          } else if (displayIndex < cleanResult.length) {
-            displayIndex += 3; // 每次前進 3 個字元
-            if (displayIndex > cleanResult.length) displayIndex = cleanResult.length;
-            const currentMarkdown = cleanResult.substring(0, displayIndex);
-            bubble.innerHTML = formatMessageText(currentMarkdown);
-            scrollChatToBottom();
-          } else if (done && displayIndex >= cleanResult.length) {
-            // 串流結束，且畫面已追上最終長度，清除計時器
-            clearInterval(typingInterval);
-            bubble.innerHTML = formatMessageText(cleanResult);
-            scrollChatToBottom();
-          }
-        }, 15);
-      }
-
-      if (value) {
-        buffer += decoder.decode(value, { stream: !done });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const rawLine of lines) {
-          const line = rawLine.trim();
-          if (!line.startsWith('data:')) continue;
-
-          const jsonStr = line.slice(5).trim();
-          if (!jsonStr || jsonStr === '[DONE]') continue;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            if ('result' in parsed && parsed.result) {
-              latestResult = parsed.result; // 背景更新最新拿到的完整文字
-            }
-          } catch {
-            // 忽略解析失敗的零碎片段
-          }
-        }
-      }
-    }
-
-    // 防呆：如果 API 異常或結束時完全沒有啟動定時器
-    if (!typingInterval) {
-      if (latestResult) {
-        const cleanResult = extractAndCleanRiskJson(latestResult);
-        bubble.innerHTML = formatMessageText(cleanResult);
-      } else {
-        bubble.innerHTML = '<span style="opacity:0.5;">（AI 未回傳有效回覆或拒絕回答此問題）</span>';
-      }
-      scrollChatToBottom();
-    }
-
   } catch (err) {
     console.error('[GeminiData API] 呼叫失敗:', err);
     document.getElementById('loader-row')?.remove();
@@ -1072,3 +925,34 @@ function scrollChatToBottom() {
 
 // Initialize UI (純前端模式：不需要後端 API 初始化)
 window.onload = initApi;
+
+// ============================================================
+// 影子串流 (Shadow Stream): 背景非同步擷取 JSON 結構化資料
+// ============================================================
+async function sendShadowQuestionToApi(questionText, caseCtx) {
+  try {
+    const sId = await getShadowChatId();
+    if (!sId) return;
+
+    const shadowOverride = `\n\n(系統強制背景指令：請針對剛才的對話與背景，進行結構化資料擷取。請你「只」回傳純 JSON，絕對不要有任何前言、結語或 Markdown 文字。若案件涉及財務風險，回傳 {"settlement": "...", "fine": "..."}。此外，務必根據當下情境給出 2~3 個建議行動，格式為 {"suggested_actions": [{"label":"💡 按鈕名稱", "prompt":"完整提示詞"}]}。請將資料合併輸出並使用 \`\`\`json 包覆。)`;
+
+    const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/${sId}`, {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify({
+        q: (caseCtx ? `${caseCtx}${questionText}` : questionText) + shadowOverride,
+        streaming: false
+      })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.data && data.data.content) {
+        // 利用舊的解析函式來處理背景的純 JSON 回覆，直接更新 DOM
+        extractAndCleanRiskJson(data.data.content);
+      }
+    }
+  } catch (err) {
+    console.warn("Shadow Stream 背景呼叫失敗:", err);
+  }
+}

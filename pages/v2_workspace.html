@@ -163,7 +163,7 @@
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
-        <input type="text" id="case-search" class="search-input" placeholder="輸入案件編號 (如: C001) 或關鍵字...">
+        <input type="text" id="case-search" class="search-input" placeholder="輸入案件編號，或用一句話描述您想找的爭議類型...">
       </div>
       <button class="search-btn" onclick="triggerSearch()">
         <span>搜尋</span>
@@ -324,9 +324,9 @@
           <footer class="control-section">
             <!-- Quick prompt tags -->
             <div class="quick-prompts" id="quick-prompts-bar">
-              <button class="prompt-chip" onclick="useQuickPrompt('請針對此案進行合規分析，條列合規與不合規之處。')">🔍 案件合規審查</button>
-              <button class="prompt-chip" onclick="useQuickPrompt('本案有何和解或解決爭議的建議？')">💡 和解方案建議</button>
-              <button class="prompt-chip" onclick="useQuickPrompt('撰寫此案的正式金融爭議合規審查報告草稿。')">📄 生成合規報告</button>
+              <button class="prompt-chip action-chip" onclick="useQuickPrompt('請針對此案啟動深入的適法性評估分析。')" style="background: rgba(197, 160, 89, 0.15); color: #9a7b40; border-color: rgba(197, 160, 89, 0.3);">🚀 啟動深度適法性評估</button>
+              <button class="prompt-chip" onclick="useQuickPrompt('幫我總結這個案件的爭議核心，並指出有哪些違規「紅旗」？')">🚩 抓出案件違規紅旗</button>
+              <button class="prompt-chip" onclick="useQuickPrompt('請幫我列出處理這個案件的建議 SOP，第一步我們該做什麼？')">📋 列出處理此案的 SOP</button>
             </div>
 
             <div class="input-wrapper">
