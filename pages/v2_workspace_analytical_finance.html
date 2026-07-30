@@ -134,10 +134,8 @@
             <span>最新批次快速篩選:</span>
             <button class="tag-btn" onclick="applyQuickFilter('case_invest')">投資型保單</button>
             <button class="tag-btn" onclick="applyQuickFilter('case_insurance')">實支實付險</button>
-            <label class="tag-btn" style="cursor: pointer;">匯入案件 CSV / JSON<input id="analysis-data-file" type="file" accept=".csv,.json,application/json,text/csv" onchange="importAnalyticsFile(event)" hidden></label>
-            <button class="tag-btn" onclick="downloadAnalyticsTemplate()">下載欄位範本</button>
         </div>
-        <div id="analysis-data-status" style="max-width: 900px; margin: 0.35rem auto 0; font-size: 0.76rem; color: #64748b; text-align: center;">尚未載入案件資料。</div>
+        <div id="analysis-data-status" style="max-width: 900px; margin: 0.35rem auto 0; font-size: 0.76rem; color: #64748b; text-align: center;">自動從後端資料庫載入最新批次資料...</div>
     </section>
 
     <!-- Main Dashboard Workspace -->
@@ -255,7 +253,32 @@
     </main>
 
     <script src="../js/config.js?v=2"></script>
-    <script src="../js/workspace_analytical_verified.js"></script>
+    <script src="../js/workspace_analytical_improve.js"></script>
+    <!-- Mock Drill-down Modal -->
+    <div id="drilldown-modal" style="display: none; position: fixed; inset: 0; z-index: 1000; align-items: center; justify-content: center; padding: 1rem; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px);">
+        <div style="background: white; border-radius: 12px; width: 100%; max-width: 500px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); overflow: hidden; display: flex; flex-direction: column;">
+            <div style="padding: 1rem 1.25rem; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                <h3 style="margin: 0; font-size: 1rem; color: #1e293b; display: flex; align-items: center; gap: 0.5rem;">
+                    <svg width="18" height="18" fill="none" stroke="#ef4444" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    Root Cause Drill-down (Mock)
+                </h3>
+                <button onclick="document.getElementById('drilldown-modal').style.display='none'" style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer; color: #64748b;">&times;</button>
+            </div>
+            <div style="padding: 1.25rem; background: #f8fafc; font-size: 0.85rem; line-height: 1.6; color: #475569;">
+                <div style="margin-bottom: 1rem;">
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; background: #fee2e2; color: #b91c1c; font-weight: 600; font-size: 0.75rem; margin-bottom: 0.5rem;">AI 共性特徵摘要</span>
+                    <p style="margin: 0;">發現這批高風險案件中，高達 85% 的當事人投訴內容高度重合，關鍵字集中於：<strong>『理專未解釋投資型保單之匯率風險』</strong>與<strong>『保本話術誤導』</strong>。</p>
+                </div>
+                <div style="padding-top: 1rem; border-top: 1px solid #e2e8f0;">
+                    <div style="font-weight: 600; color: #1e293b; margin-bottom: 0.5rem;">🔗 原始案卷證據跳轉：</div>
+                    <ul style="margin: 0; padding-left: 1.2rem; list-style-type: disc;">
+                        <li><a href="v2_workspace_finance.html" style="color: #3b82f6; text-decoration: underline;">跳轉至 C-DEMO-001 案卷 (螢光筆標記處)</a></li>
+                        <li><a href="#" onclick="alert('Demo: 假裝跳轉至 C-DEMO-005'); return false;" style="color: #3b82f6; text-decoration: underline;">跳轉至 C-DEMO-005 案卷 (螢光筆標記處)</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>

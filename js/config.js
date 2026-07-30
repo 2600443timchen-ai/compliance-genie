@@ -16,6 +16,5 @@ const GEMINI_TENANT = '6a439e670763de002d27d6bd';
 // 帶有鑑權的 Request Headers
 const getApiHeaders = () => ({
   'Content-Type': 'application/json',
-  'Authorization': `Bearer ${GEMINI_JWT}`,
-  'x-application-tenant': GEMINI_TENANT
+  'Authorization': `Bearer ${GEMINI_JWT}`
 });

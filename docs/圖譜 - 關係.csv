@@ -1,0 +1,11 @@
+source,relation,target
+Case,HAS_PRODUCT,Product
+Case,HAS_DISPUTE,Dispute
+Case,CITES,Regulation
+Case,HAS_OUTCOME,outcome
+Product,HAS_RISK,Dispute
+Dispute,PREVENT_BY,Improvement
+Dispute,HAS_ROOT_CAUSE,爭議根本原因
+Dispute,HAS_TYPE,違規類型
+Case,HAS_CUSTOMER_TYPE,客戶類型
+Case,HAS_AMOUNT,涉案金額

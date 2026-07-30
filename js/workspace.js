@@ -395,6 +395,8 @@ async function triggerSearch() {
     
     document.getElementById('risk-settlement').textContent = '等待後端演算中...';
     document.getElementById('risk-fine').textContent = '等待後端演算中...';
+    if(document.getElementById('risk-confidence-row')) document.getElementById('risk-confidence-row').style.display = 'none';
+    if(document.getElementById('risk-precedent-row')) document.getElementById('risk-precedent-row').style.display = 'none';
 
     const statusBadge = document.getElementById('case-badge-status');
     statusBadge.textContent = matchedCase.status;
@@ -497,6 +499,19 @@ async function triggerSearch() {
           elSettlement.style.color = '#f59e0b';
           elFine.style.fontSize = '0.9rem';
           elFine.style.color = '#ef4444';
+          
+          if(document.getElementById('risk-confidence-row')) {
+            document.getElementById('risk-confidence-row').style.display = 'flex';
+            document.getElementById('risk-precedent-row').style.display = 'flex';
+            
+            // 動態產生假數據
+            document.getElementById('risk-confidence').textContent = (Math.floor(Math.random() * 15) + 75) + '%';
+            if (q.includes('002') || (matchedCase && matchedCase.item && matchedCase.item.includes('醫療'))) {
+              document.getElementById('risk-precedent').textContent = '參考 111 年評議中心實支實付融通理賠案';
+            } else {
+              document.getElementById('risk-precedent').textContent = '參考 112 年金管會某銀行理專未盡告知義務裁罰案';
+            }
+          }
        })
        .catch(e => {
           document.getElementById('risk-settlement').textContent = 'API 連線失敗';
