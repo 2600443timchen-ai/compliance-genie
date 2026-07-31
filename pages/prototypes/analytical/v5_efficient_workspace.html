@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compliance Command Center - Efficient Workspace</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold: #C5A059;
+            --blue: #1E3A8A;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --red: #ef4444;
+            --orange: #f59e0b;
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; overflow-x: hidden; color: var(--text-main); }
+        
+        /* Layout */
+        .dashboard { padding: 2rem; max-width: 1400px; margin: 0 auto; } /* Removed theatrical scaling/shifting */
+        
+        .overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(15, 23, 42, 0.6); opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 10; }
+        .overlay.active { opacity: 1; pointer-events: auto; }
+        
+        /* Right Drawer - Reduced width, faster transition */
+        .drawer {
+            position: fixed; top: 0; right: -60%; width: 60%; height: 100vh; background: var(--surface);
+            box-shadow: -10px 0 25px rgba(0,0,0,0.2); transition: right 0.25s ease-out;
+            z-index: 20; display: flex; flex-direction: column;
+        }
+        .drawer.open { right: 0; }
+        
+        /* Drawer Header */
+        .drawer-header { padding: 1.5rem 2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #f8fafc; }
+        
+        /* Drawer Body: Split into Main Content and AI Feed */
+        .drawer-body { display: flex; flex: 1; overflow: hidden; }
+        
+        /* Main Content Area */
+        .case-main { flex: 7; padding: 2rem; overflow-y: auto; }
+        
+        /* AI Insight Feed - Accumulative, not replacing */
+        .ai-feed-container { 
+            flex: 3; background: #f1f5f9; border-left: 1px solid var(--border); 
+            display: flex; flex-direction: column;
+            transition: flex 0.3s ease; /* Allows collapsing */
+        }
+        .ai-feed-container.collapsed { flex: 0; border: none; overflow: hidden; }
+        
+        .ai-feed-header { padding: 1rem; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--blue); display: flex; justify-content: space-between; align-items: center; }
+        .ai-feed { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
+        
+        /* Dashboard Elements */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; }
+        
+        .action-center { 
+            background: var(--surface); border-left: 5px solid var(--red); 
+            border-radius: 8px; padding: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.02); 
+            margin-bottom: 2.5rem; 
+        }
+        .action-item { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 1.2rem; border: 1px solid var(--border); border-radius: 6px; 
+            margin-bottom: 0.8rem; cursor: pointer; background: #fff;
+        }
+        .action-item:hover { border-color: var(--blue); }
+        
+        .kpi-row { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
+        .kpi-card { flex: 1; background: var(--surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border); }
+        
+        .btn { padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid transparent; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+        .btn-primary { background: var(--blue); color: white; }
+        .btn-outline { background: transparent; border-color: var(--border); color: var(--text-main); }
+        .btn-outline:hover { background: #f1f5f9; }
+        
+        /* Tabs */
+        .tabs { display: flex; gap: 2rem; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+        .tab { font-weight: 500; color: var(--text-muted); cursor: pointer; padding-bottom: 0.8rem; position: relative; }
+        .tab.active { font-weight: 600; color: var(--blue); }
+        .tab.active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 3px; background: var(--blue); }
+
+        /* AI Card Styles */
+        .ai-card { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 1rem; font-size: 0.9rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02); animation: slideIn 0.3s ease-out; }
+        .ai-card-title { font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+        .ai-card.context-law { border-left: 3px solid var(--gold); }
+        .ai-card.context-history { border-left: 3px solid var(--blue); }
+        .ai-card.context-summary { border-left: 3px solid #10b981; }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="overlay" onclick="closeDrawer()"></div>
+    
+    <div class="dashboard" id="mainDashboard">
+        <header class="header">
+            <div>
+                <h1 style="margin: 0; font-family: 'Outfit'; color: var(--blue);">Command Center</h1>
+                <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.2rem;">Enterprise Compliance Workspace</div>
+            </div>
+            <div style="font-weight: 500;">林專員 | 金融合規部</div>
+        </header>
+        
+        <!-- Action Center: Priority 1 -->
+        <section class="action-center">
+            <h2 style="color: var(--red); margin-top: 0; margin-bottom: 1rem; font-size: 1.2rem;">⚡ Action Center (立即處理)</h2>
+            
+            <div class="action-item" onclick="openDrawer('CASE-2026-0801', '投資型保單爭議 - 高齡客戶')">
+                <div>
+                    <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.2rem;">[CRITICAL] 投資型保單爭議 - 高齡客戶</div>
+                    <div style="color: var(--text-muted); font-size: 0.9rem;">ID: CASE-2026-0801 | 業務員未落實 KYP</div>
+                </div>
+                <div style="text-align: right; display: flex; align-items: center; gap: 1.5rem;">
+                    <div>
+                        <div style="color: var(--red); font-weight: bold; font-size: 1.1rem;">SLA: 剩餘 2 小時</div>
+                        <div style="color: var(--text-muted); font-size: 0.85rem;">等待決策</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="action-item" onclick="openDrawer('CASE-2026-0802', '信用卡異常交易申訴')">
+                <div>
+                    <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.2rem;">[WARNING] 信用卡異常交易申訴</div>
+                    <div style="color: var(--text-muted); font-size: 0.9rem;">ID: CASE-2026-0802 | 流程卡住</div>
+                </div>
+                <div style="text-align: right; display: flex; align-items: center; gap: 1.5rem;">
+                    <div>
+                        <div style="color: var(--orange); font-weight: bold; font-size: 1.1rem;">SLA: 剩餘 1 天</div>
+                        <div style="color: var(--text-muted); font-size: 0.85rem;">跨部門協調</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <div class="kpi-row">
+            <div class="kpi-card">
+                <div style="color: var(--text-muted); font-weight: 500; font-size: 0.85rem;">Active Cases</div>
+                <div style="font-family: 'Outfit'; font-size: 2rem; font-weight: 700; margin-top: 0.2rem;">42</div>
+            </div>
+            <div class="kpi-card">
+                <div style="color: var(--text-muted); font-weight: 500; font-size: 0.85rem;">Overall Risk Score</div>
+                <div style="font-family: 'Outfit'; font-size: 2rem; font-weight: 700; margin-top: 0.2rem; color: var(--blue);">76</div>
+            </div>
+            <div class="kpi-card">
+                <!-- Changed KPI: Replaced useless AI Confidence with Actionable Metric -->
+                <div style="color: var(--text-muted); font-weight: 500; font-size: 0.85rem;">即將逾期案件總曝險 (SLA < 24h)</div>
+                <div style="font-family: 'Outfit'; font-size: 2rem; font-weight: 700; margin-top: 0.2rem; color: var(--red);">NT$ 1,250 萬</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Drawer: 60% Width, Fast Transition -->
+    <div class="drawer" id="rightDrawer">
+        <div class="drawer-header">
+            <div>
+                <span style="background: var(--red); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; margin-bottom: 0.2rem; display: inline-block;">CRITICAL</span>
+                <h2 id="drawerTitle" style="margin: 0; font-family: 'Outfit'; color: var(--blue); font-size: 1.4rem;">案件詳情</h2>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                <button onclick="toggleAIPanel()" class="btn btn-outline" id="btnToggleAI" title="收合/展開 AI 幕僚">Toggle AI</button>
+                <button onclick="closeDrawer()" class="btn btn-outline" style="border: none; font-size: 1.2rem;">&times;</button>
+            </div>
+        </div>
+        
+        <div class="drawer-body">
+            <!-- Left Side: Main Case Details -->
+            <div class="case-main">
+                <div class="tabs">
+                    <div class="tab active" onclick="switchTab(this, 'summary')">供述與摘要</div>
+                    <div class="tab" onclick="switchTab(this, 'law')">法務意見</div>
+                    <div class="tab" onclick="switchTab(this, 'history')">案件軌跡</div>
+                </div>
+                
+                <div id="tabContent-summary" class="tab-pane">
+                    <div style="margin-bottom: 1.5rem; line-height: 1.6;">
+                        <h4 style="margin: 0 0 0.5rem 0; color: var(--text-muted);">[ 客戶主張 ]</h4>
+                        <p style="margin: 0;">客戶（72歲）致電表示購買「真富貴投資型保單」時，業務未告知提前解約將損失 30% 本金。客戶主張當時以為是定存，要求退還 200 萬元。</p>
+                    </div>
+                    <div style="margin-bottom: 1.5rem; line-height: 1.6;">
+                        <h4 style="margin: 0 0 0.5rem 0; color: var(--text-muted);">[ 業務員回覆 ]</h4>
+                        <p style="margin: 0;">業務員表示已於簽約時口頭說明風險，並依公司規定錄音。</p>
+                    </div>
+                </div>
+                
+                <div id="tabContent-law" class="tab-pane" style="display: none;">
+                    <div style="line-height: 1.6;">
+                        <h4 style="margin: 0 0 0.5rem 0; color: var(--text-muted);">[ 法務部初審 ]</h4>
+                        <p>等待法務確認錄音檔內容是否合規。需業務單位提供錄音檔逐字稿與簽收文件。</p>
+                        <button class="btn btn-outline" style="margin-top: 1rem;">發送催告信</button>
+                    </div>
+                </div>
+                
+                <div id="tabContent-history" class="tab-pane" style="display: none;">
+                    <div style="line-height: 1.6;">
+                        <div style="display: flex; gap: 1rem; border-bottom: 1px solid var(--border); padding: 0.8rem 0;">
+                            <span style="color: var(--text-muted); width: 100px;">09:30</span><span>進件，AI 判定高風險 SLA 啟動</span>
+                        </div>
+                        <div style="display: flex; gap: 1rem; border-bottom: 1px solid var(--border); padding: 0.8rem 0;">
+                            <span style="color: var(--text-muted); width: 100px;">10:15</span><span>主管指派予林專員</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Side: Accumulative AI Feed -->
+            <div class="ai-feed-container" id="aiPanel">
+                <div class="ai-feed-header">
+                    <span>✨ AI Insight Stream</span>
+                    <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted);">隨上下文自動累積</span>
+                </div>
+                <div class="ai-feed" id="aiFeed">
+                    <!-- Cards will be prepended here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Store which AI context cards have already been shown so we don't spam duplicates
+        const shownContexts = new Set();
+
+        function openDrawer(caseId, title) {
+            document.getElementById('overlay').classList.add('active');
+            document.getElementById('rightDrawer').classList.add('open');
+            document.getElementById('drawerTitle').innerText = caseId + ' ' + title;
+            
+            // Reset state
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(t => t.classList.remove('active'));
+            tabs[0].classList.add('active');
+            
+            document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+            document.getElementById('tabContent-summary').style.display = 'block';
+            
+            // Reset AI Feed
+            const aiFeed = document.getElementById('aiFeed');
+            aiFeed.innerHTML = '';
+            shownContexts.clear();
+            
+            // Auto-trigger the first context
+            triggerAIContext('summary');
+        }
+
+        function closeDrawer() {
+            document.getElementById('overlay').classList.remove('active');
+            document.getElementById('rightDrawer').classList.remove('open');
+        }
+
+        let aiPanelCollapsed = false;
+        function toggleAIPanel() {
+            aiPanelCollapsed = !aiPanelCollapsed;
+            const panel = document.getElementById('aiPanel');
+            if(aiPanelCollapsed) {
+                panel.classList.add('collapsed');
+            } else {
+                panel.classList.remove('collapsed');
+            }
+        }
+        
+        function switchTab(element, tabId) {
+            // UI Switch
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(t => t.classList.remove('active'));
+            element.classList.add('active');
+            
+            document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+            document.getElementById('tabContent-' + tabId).style.display = 'block';
+            
+            // Trigger AI Context WITHOUT replacing previous insights
+            triggerAIContext(tabId);
+        }
+
+        function triggerAIContext(context) {
+            // Prevent spamming the same card multiple times if user toggles tabs back and forth
+            if(shownContexts.has(context)) return;
+            shownContexts.add(context);
+
+            const aiFeed = document.getElementById('aiFeed');
+            let cardHTML = '';
+
+            if (context === 'summary') {
+                cardHTML = `
+                    <div class="ai-card context-summary">
+                        <div class="ai-card-title" style="color: #10b981;">📝 摘要與法規比對</div>
+                        <p style="margin: 0.5rem 0;">客戶 72 歲，適用《金保法》高齡防護特別條款。<br><br><strong>建議檢核點：</strong><br>1. 是否有第三人陪同<br>2. 錄音軌跡是否完整</p>
+                    </div>
+                `;
+            } else if (context === 'law') {
+                cardHTML = `
+                    <div class="ai-card context-law">
+                        <div class="ai-card-title" style="color: var(--gold);">⚖️ 法務協作建議</div>
+                        <p style="margin: 0.5rem 0;">偵測到缺少「錄音逐字稿」。</p>
+                        <button class="btn btn-primary" style="width: 100%; font-size: 0.8rem; padding: 0.4rem;">自動草擬調卷通知信</button>
+                    </div>
+                `;
+            } else if (context === 'history') {
+                cardHTML = `
+                    <div class="ai-card context-history">
+                        <div class="ai-card-title" style="color: var(--blue);">🔍 歷史判例推薦</div>
+                        <div style="background: #f8fafc; padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem;">
+                            <strong>CASE-2025-1102</strong><br>
+                            <span style="color: var(--text-muted); font-size: 0.8rem;">未落實 KYC，判賠 50% 違約金</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Append to the top (prepend) so the newest insight is visible immediately
+            aiFeed.insertAdjacentHTML('afterbegin', cardHTML);
+        }
+    </script>
+</body>
+</html>

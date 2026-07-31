@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compliance Command Center - Horizontal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold: #C5A059;
+            --blue: #1E3A8A;
+            --bg: #fafafa;
+            --surface: #ffffff;
+            --text-main: #333333;
+            --border: #eaedf2;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            margin: 0; padding: 0;
+            color: var(--text-main);
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        
+        header { border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; }
+        h1 { font-family: 'Outfit'; margin: 0; font-size: 1.5rem; color: var(--blue); }
+        
+        /* Rows */
+        .row-kpi { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
+        .kpi-card { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; border-top: 4px solid var(--gold); box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .kpi-title { font-size: 0.9rem; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+        .kpi-val { font-size: 2.2rem; font-weight: 700; font-family: 'Outfit'; }
+        
+        .row-action { background: linear-gradient(90deg, var(--blue), #1e40af); color: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; }
+        .action-text { font-size: 1.2rem; font-weight: 600; }
+        .action-btn { background: var(--gold); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        
+        .row-split { display: flex; gap: 2rem; }
+        .col-main { flex: 2; }
+        .col-side { flex: 1; }
+        
+        .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .panel-header { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+        
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 0.8rem; text-align: left; border-bottom: 1px solid var(--border); }
+        th { color: #666; font-weight: 500; font-size: 0.9rem; }
+        
+        .ai-bar { background: var(--surface); border: 1px solid var(--gold); border-radius: 30px; padding: 0.5rem; display: flex; margin-bottom: 2rem; }
+        .ai-input { flex: 1; border: none; outline: none; padding: 0 1rem; font-size: 1rem; }
+        .ai-btn { background: var(--blue); color: white; border: none; padding: 0.5rem 1.5rem; border-radius: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Compliance Command Center</h1>
+            <div>Data last synced: 10 mins ago</div>
+        </header>
+        
+        <div class="ai-bar">
+            <div style="padding: 0.5rem 1rem; color: var(--gold); font-weight: bold;">Genie AI</div>
+            <input type="text" class="ai-input" placeholder="Type a command or ask a question (e.g., 'Show me SLA breaches today')">
+            <button class="ai-btn">Analyze</button>
+        </div>
+        
+        <div class="row-action">
+            <div class="action-text">⚠️ You have 3 Critical Actions pending SLA within 2 hours.</div>
+            <button class="action-btn">Resolve Now</button>
+        </div>
+        
+        <div class="row-kpi">
+            <div class="kpi-card" style="border-top-color: #ef4444;">
+                <div class="kpi-title">High Risk Cases</div>
+                <div class="kpi-val">14</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Overall Risk Score</div>
+                <div class="kpi-val">76</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Cases Processed</div>
+                <div class="kpi-val">128</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Avg Resolution Time</div>
+                <div class="kpi-val">2.4<span style="font-size: 1rem;">h</span></div>
+            </div>
+        </div>
+        
+        <div class="row-split">
+            <div class="col-main">
+                <div class="panel">
+                    <div class="panel-header">Trend Analysis</div>
+                    <div style="height: 200px; display: flex; align-items: flex-end; gap: 20px;">
+                        <!-- Bar chart mock -->
+                        <div style="flex:1; background: var(--border); height: 40%"></div>
+                        <div style="flex:1; background: var(--border); height: 50%"></div>
+                        <div style="flex:1; background: var(--border); height: 30%"></div>
+                        <div style="flex:1; background: var(--blue); height: 80%"></div>
+                        <div style="flex:1; background: var(--border); height: 60%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-side">
+                <div class="panel">
+                    <div class="panel-header">Root Cause Overview</div>
+                    <table>
+                        <tr><th>Category</th><th>Count</th></tr>
+                        <tr><td>System Error</td><td>45</td></tr>
+                        <tr><td>Policy unclear</td><td>32</td></tr>
+                        <tr><td>Fraud</td><td>12</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

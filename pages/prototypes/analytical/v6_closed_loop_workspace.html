@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compliance Command Center - Closed Loop Workspace</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold: #C5A059;
+            --blue: #1E3A8A;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --red: #ef4444;
+            --orange: #f59e0b;
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; overflow-x: hidden; color: var(--text-main); }
+        
+        .dashboard { padding: 2rem; max-width: 1400px; margin: 0 auto; position: relative; }
+        
+        /* Bulk Action Bar */
+        .bulk-action-bar {
+            position: fixed; bottom: -100px; left: 50%; transform: translateX(-50%);
+            background: #1e293b; color: white; padding: 1rem 2rem; border-radius: 50px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 1.5rem;
+            transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 5;
+        }
+        .bulk-action-bar.visible { bottom: 2rem; }
+        .bulk-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 0.5rem 1rem; border-radius: 20px; cursor: pointer; font-size: 0.9rem; transition: background 0.2s; }
+        .bulk-btn:hover { background: rgba(255,255,255,0.2); }
+        
+        /* Overlay & Drawer */
+        .overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(15, 23, 42, 0.6); opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 10; }
+        .overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .drawer {
+            position: fixed; top: 0; right: -70%; width: 70%; height: 100vh; background: var(--surface);
+            box-shadow: -10px 0 25px rgba(0,0,0,0.2); transition: right 0.25s ease-out;
+            z-index: 20; display: flex; flex-direction: column;
+        }
+        .drawer.open { right: 0; }
+        
+        .drawer-header { padding: 1rem 2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #f8fafc; }
+        
+        /* Drawer Body: Split-view for Evidence + AI Feed */
+        .drawer-body { display: flex; flex: 1; overflow: hidden; }
+        
+        /* Main Content Area (Split into Text and Evidence) */
+        .case-main { flex: 7; display: flex; flex-direction: column; overflow: hidden; }
+        
+        .case-split-view { display: flex; flex: 1; overflow: hidden; }
+        
+        /* Text Area (Left) */
+        .case-text-area { flex: 1; padding: 1.5rem; overflow-y: auto; border-right: 1px solid var(--border); }
+        
+        /* Evidence Viewer (Right) */
+        .case-media-area { flex: 1; background: #f1f5f9; display: flex; flex-direction: column; }
+        .media-header { padding: 0.8rem 1rem; background: #e2e8f0; font-weight: 600; font-size: 0.9rem; color: var(--text-main); display: flex; justify-content: space-between; }
+        .media-content { flex: 1; padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; }
+        
+        /* Document Mock */
+        .doc-mock { background: white; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); aspect-ratio: 1/1.2; position: relative; }
+        .doc-line { height: 8px; background: #e2e8f0; margin-bottom: 1rem; border-radius: 4px; }
+        .doc-highlight { background: rgba(239, 68, 68, 0.2); outline: 2px solid var(--red); }
+        
+        /* Audio Player Mock */
+        .audio-player { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .audio-track { flex: 1; height: 30px; background: repeating-linear-gradient(90deg, #cbd5e1, #cbd5e1 2px, transparent 2px, transparent 6px); border-radius: 4px; display: flex; align-items: center; }
+        .audio-progress { height: 100%; width: 45%; background: rgba(30, 58, 138, 0.3); border-right: 2px solid var(--blue); }
+        
+        /* AI Feed */
+        .ai-feed-container { flex: 3; background: #f8fafc; border-left: 1px solid var(--border); display: flex; flex-direction: column; }
+        .ai-feed-header { padding: 1rem; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--blue); }
+        .ai-feed { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
+        
+        /* Dashboard Elements */
+        .action-center { background: var(--surface); border-left: 5px solid var(--red); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .action-item { display: flex; align-items: center; padding: 1rem; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.8rem; background: #fff; gap: 1rem; }
+        
+        /* Custom Checkbox */
+        .checkbox-wrapper { display: flex; align-items: center; }
+        .case-checkbox { width: 20px; height: 20px; cursor: pointer; accent-color: var(--blue); }
+        
+        .action-content { flex: 1; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        
+        .kpi-row { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
+        .kpi-card { flex: 1; background: var(--surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border); }
+        
+        /* Buttons */
+        .btn { padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid transparent; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+        .btn-primary { background: var(--blue); color: white; }
+        
+        /* AI Card & Rich Text Editor */
+        .ai-card { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 1rem; font-size: 0.9rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02); animation: slideIn 0.3s ease-out; }
+        .ai-card-title { font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; color: var(--gold); }
+        
+        .rich-editor { margin-top: 1rem; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; display: none; }
+        .rich-editor.active { display: block; animation: slideDown 0.3s ease; }
+        .editor-toolbar { background: #f1f5f9; padding: 0.5rem; border-bottom: 1px solid var(--border); display: flex; gap: 0.5rem; }
+        .editor-btn { background: white; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 8px; font-weight: bold; cursor: pointer; }
+        .editor-textarea { width: 100%; height: 150px; border: none; padding: 1rem; font-family: 'Inter'; font-size: 0.9rem; resize: none; outline: none; }
+        .editor-footer { background: #f8fafc; padding: 0.5rem 1rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 0.5rem; }
+
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideDown { from { opacity: 0; height: 0; } to { opacity: 1; height: 150px; } }
+        
+        /* Tabs */
+        .tabs { display: flex; gap: 2rem; border-bottom: 1px solid var(--border); padding: 0 1.5rem; background: white; }
+        .tab { font-weight: 500; color: var(--text-muted); cursor: pointer; padding: 1rem 0; position: relative; }
+        .tab.active { font-weight: 600; color: var(--blue); }
+        .tab.active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 3px; background: var(--blue); }
+    </style>
+</head>
+<body>
+    <!-- Bulk Action Bar -->
+    <div class="bulk-action-bar" id="bulkActionBar">
+        <span style="font-weight: 600;" id="bulkCount">已選取 2 件案件</span>
+        <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.3);"></div>
+        <button class="bulk-btn">批次指派法務</button>
+        <button class="bulk-btn">批次展延 SLA</button>
+        <button class="bulk-btn" style="background: var(--gold); border-color: var(--gold); color: #000;">批次結案</button>
+    </div>
+
+    <div class="overlay" id="overlay" onclick="closeDrawer()"></div>
+    
+    <div class="dashboard" id="mainDashboard">
+        <header style="margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
+            <h1 style="margin: 0; color: var(--blue); font-family: 'Outfit';">Command Center</h1>
+        </header>
+        
+        <!-- Action Center with Checkboxes -->
+        <section class="action-center">
+            <h2 style="color: var(--red); margin-top: 0; margin-bottom: 1rem; font-size: 1.2rem;">⚡ Action Center (立即處理)</h2>
+            
+            <div class="action-item">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" class="case-checkbox" onchange="updateBulkBar()">
+                </div>
+                <div class="action-content" onclick="openDrawer('CASE-2026-0801', '投資型保單爭議 - 高齡客戶')">
+                    <div>
+                        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.2rem;">[CRITICAL] 投資型保單爭議 - 高齡客戶</div>
+                        <div style="color: var(--text-muted); font-size: 0.9rem;">ID: CASE-2026-0801 | 業務員未落實 KYP</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="color: var(--red); font-weight: bold;">SLA: 剩餘 2 小時</div>
+                        <div style="color: var(--text-muted); font-size: 0.85rem;">等待決策</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="action-item">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" class="case-checkbox" onchange="updateBulkBar()">
+                </div>
+                <div class="action-content" onclick="openDrawer('CASE-2026-0802', '信用卡異常交易申訴')">
+                    <div>
+                        <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.2rem;">[WARNING] 信用卡異常交易申訴</div>
+                        <div style="color: var(--text-muted); font-size: 0.9rem;">ID: CASE-2026-0802 | 流程卡住</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="color: var(--orange); font-weight: bold;">SLA: 剩餘 1 天</div>
+                        <div style="color: var(--text-muted); font-size: 0.85rem;">跨部門協調</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <div class="kpi-row">
+            <div class="kpi-card">
+                <div style="color: var(--text-muted); font-size: 0.85rem;">即將逾期案件總曝險 (SLA < 24h)</div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--red);">NT$ 1,250 萬</div>
+            </div>
+            <div class="kpi-card">
+                <div style="color: var(--text-muted); font-size: 0.85rem;">今日法規觸發熱區</div>
+                <div style="font-size: 1.2rem; font-weight: 700; color: var(--blue); margin-top: 0.5rem;">金保法第9條 (適合度原則)</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Drawer: Split-view Evidence Workspace -->
+    <div class="drawer" id="rightDrawer">
+        <div class="drawer-header">
+            <h2 id="drawerTitle" style="margin: 0; color: var(--blue); font-size: 1.4rem;">案件詳情</h2>
+            <button onclick="closeDrawer()" class="btn" style="background: transparent; border: 1px solid var(--border); font-size: 1.2rem; padding: 0.2rem 0.6rem;">&times;</button>
+        </div>
+        
+        <div class="drawer-body">
+            <!-- Left Side: Main Case + Document Viewer (Split-view) -->
+            <div class="case-main">
+                <div class="tabs">
+                    <div class="tab active" onclick="switchTab(this, 'summary')">供述與摘要</div>
+                    <div class="tab" onclick="switchTab(this, 'law')">法務意見</div>
+                    <div class="tab" onclick="switchTab(this, 'evidence')">原始憑證</div>
+                </div>
+                
+                <div class="case-split-view">
+                    <!-- Text Area -->
+                    <div class="case-text-area">
+                        <h4 style="color: var(--text-muted);">[ 客戶主張 ]</h4>
+                        <p>客戶（72歲）致電表示購買「真富貴投資型保單」時，業務未告知提前解約將損失 30% 本金。</p>
+                        
+                        <h4 style="color: var(--text-muted); margin-top: 1.5rem;">[ 業務員回覆 ]</h4>
+                        <p>業務員表示已於簽約時口頭說明風險，並依公司規定進行錄音。</p>
+                        
+                        <div style="background: #fef2f2; padding: 1rem; border-left: 4px solid var(--red); margin-top: 1.5rem;">
+                            <strong style="color: var(--red);">系統警示</strong><br>
+                            客戶屬於高齡族群，適用金保法高齡防護特別條款。
+                        </div>
+                    </div>
+                    
+                    <!-- Evidence Viewer -->
+                    <div class="case-media-area">
+                        <div class="media-header">
+                            <span>📎 關聯憑證檢視器 (Document Viewer)</span>
+                            <span style="color: var(--blue); cursor: pointer;">全螢幕展開</span>
+                        </div>
+                        <div class="media-content">
+                            <!-- Audio Player -->
+                            <div class="audio-player">
+                                <button style="background: var(--blue); color: white; border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer;">▶</button>
+                                <div class="audio-track"><div class="audio-progress"></div></div>
+                                <span style="font-size: 0.8rem; color: var(--text-muted);">02:14 / 05:30</span>
+                            </div>
+                            
+                            <!-- PDF Document Mock -->
+                            <div class="doc-mock">
+                                <div style="text-align: center; font-weight: bold; margin-bottom: 2rem;">真富貴投資型保險 要保書</div>
+                                <div class="doc-line" style="width: 100%;"></div>
+                                <div class="doc-line" style="width: 80%;"></div>
+                                <div class="doc-line" style="width: 90%;"></div>
+                                <div class="doc-line" style="width: 60%;"></div>
+                                
+                                <div style="margin: 2rem 0; font-size: 0.85rem; color: #64748b;">[ 聲明事項 ]</div>
+                                <!-- Highlighted area -->
+                                <div class="doc-line doc-highlight" style="width: 95%; height: 20px;"></div>
+                                <div class="doc-line" style="width: 85%;"></div>
+                                
+                                <div style="position: absolute; bottom: 2rem; right: 2rem; border: 1px dashed var(--blue); padding: 0.5rem; color: var(--blue); font-size: 0.8rem; transform: rotate(-5deg);">
+                                    客戶親筆簽名 (已比對)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Side: AI Feed -->
+            <div class="ai-feed-container">
+                <div class="ai-feed-header">✨ AI Insight Stream</div>
+                <div class="ai-feed" id="aiFeed">
+                    <!-- Cards prepended here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateBulkBar() {
+            const checkboxes = document.querySelectorAll('.case-checkbox');
+            let checkedCount = 0;
+            checkboxes.forEach(cb => { if(cb.checked) checkedCount++; });
+            
+            const bar = document.getElementById('bulkActionBar');
+            if(checkedCount > 0) {
+                document.getElementById('bulkCount').innerText = '已選取 ' + checkedCount + ' 件案件';
+                bar.classList.add('visible');
+            } else {
+                bar.classList.remove('visible');
+            }
+        }
+
+        const shownContexts = new Set();
+
+        function openDrawer(caseId, title) {
+            document.getElementById('overlay').classList.add('active');
+            document.getElementById('rightDrawer').classList.add('open');
+            document.getElementById('drawerTitle').innerText = caseId + ' ' + title;
+            
+            const aiFeed = document.getElementById('aiFeed');
+            aiFeed.innerHTML = '';
+            shownContexts.clear();
+            
+            triggerAIContext('summary');
+        }
+
+        function closeDrawer() {
+            document.getElementById('overlay').classList.remove('active');
+            document.getElementById('rightDrawer').classList.remove('open');
+        }
+        
+        function switchTab(element, tabId) {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(t => t.classList.remove('active'));
+            element.classList.add('active');
+            triggerAIContext(tabId);
+        }
+
+        function triggerAIContext(context) {
+            if(shownContexts.has(context)) return;
+            shownContexts.add(context);
+
+            const aiFeed = document.getElementById('aiFeed');
+            let cardHTML = '';
+
+            if (context === 'summary') {
+                cardHTML = `
+                    <div class="ai-card" style="border-left: 3px solid #10b981;">
+                        <div class="ai-card-title">📝 證據比對摘要</div>
+                        <p>左側為雙方供述。右側已自動調閱通話錄音與要保書PDF。<br><br><strong>AI 偵測結果：</strong>錄音檔 02:14 處，業務員語速過快，未明確提及「解約損失 30% 本金」之字眼。</p>
+                    </div>
+                `;
+            } else if (context === 'law') {
+                cardHTML = `
+                    <div class="ai-card" style="border-left: 3px solid var(--gold);">
+                        <div class="ai-card-title">⚖️ 法務行動建議</div>
+                        <p>依據上述比對，建議行文業務單位要求補交「錄音逐字稿」，以利法務最終判定。</p>
+                        <button class="btn btn-primary" style="width: 100%; font-size: 0.85rem;" onclick="openEditor(this)">自動草擬調卷通知信</button>
+                        
+                        <!-- Rich Text Editor (Closed Loop) -->
+                        <div class="rich-editor">
+                            <div class="editor-toolbar">
+                                <button class="editor-btn">B</button>
+                                <button class="editor-btn">I</button>
+                                <button class="editor-btn">U</button>
+                                <span style="margin-left:auto; font-size: 0.8rem; color: #64748b; line-height: 24px;">AI 草稿生成完畢</span>
+                            </div>
+                            <textarea class="editor-textarea">致 業務二部：\n\n關於爭議案件 CASE-2026-0801，經初步調閱錄音檔，未能確認業務員已善盡 KYC 及風險告知義務。\n\n請於今日下班前 (17:30)，提供該通話錄音之完整逐字稿，並由單位主管簽核後回傳，以利法務進行最終責任判定。\n\n合規部 林專員 敬上</textarea>
+                            <div class="editor-footer">
+                                <button class="btn" style="background: transparent; border: 1px solid var(--border);" onclick="closeEditor(this)">取消</button>
+                                <button class="btn btn-primary" onclick="alert('✅ 信件已發送至業務部。系統已自動記錄此 Action。'); closeDrawer();">正式發送 (Send)</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            aiFeed.insertAdjacentHTML('afterbegin', cardHTML);
+        }
+        
+        function openEditor(btn) {
+            btn.style.display = 'none'; // Hide the button
+            const editor = btn.nextElementSibling;
+            editor.classList.add('active');
+        }
+        
+        function closeEditor(cancelBtn) {
+            const editor = cancelBtn.closest('.rich-editor');
+            editor.classList.remove('active');
+            editor.previousElementSibling.style.display = 'block'; // Show button again
+        }
+    </script>
+</body>
+</html>

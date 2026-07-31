@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compliance Command Center - Bento Grid</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold: #C5A059;
+            --blue: #1E3A8A;
+            --red: #ef4444;
+            --orange: #f59e0b;
+            --green: #10b981;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text-main: #0f172a;
+            --text-sub: #64748b;
+            --radius: 24px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        h1, h2, h3 { font-family: 'Outfit', sans-serif; }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--gold), var(--blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-auto-rows: minmax(180px, auto);
+            gap: 1.5rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05);
+            border: 1px solid rgba(0,0,0,0.02);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.08);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+        
+        /* Grid placements */
+        .action-center { grid-column: span 2; grid-row: span 2; background: linear-gradient(145deg, #ffffff, #f1f5f9); }
+        .kpi-overview { grid-column: span 2; grid-row: span 1; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; background: transparent; box-shadow: none; padding: 0; border: none; }
+        .kpi-card { background: var(--surface); border-radius: var(--radius); padding: 1.5rem; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05); }
+        .trend-analysis { grid-column: span 2; grid-row: span 2; }
+        .root-cause { grid-column: span 1; grid-row: span 2; }
+        .pending-cases { grid-column: span 1; grid-row: span 2; }
+        .ai-assistant { 
+            grid-column: span 4; 
+            background: linear-gradient(135deg, rgba(197, 160, 89, 0.1), rgba(30, 58, 138, 0.1));
+            border: 1px solid rgba(30, 58, 138, 0.15);
+        }
+
+        /* Specific Component Styles */
+        .risk-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+        .risk-high { background: #fee2e2; color: var(--red); }
+        
+        .action-item { display: flex; justify-content: space-between; padding: 1rem; background: white; border-radius: 12px; margin-bottom: 0.8rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .kpi-value { font-size: 2.5rem; font-weight: 700; color: var(--blue); font-family: 'Outfit'; }
+        
+        .ai-chat-bar { display: flex; gap: 1rem; margin-top: 1rem; }
+        .ai-input { flex: 1; padding: 1rem 1.5rem; border-radius: 30px; border: 1px solid #cbd5e1; font-size: 1rem; }
+        .ai-btn { background: linear-gradient(135deg, var(--gold), var(--blue)); color: white; border: none; padding: 0 2rem; border-radius: 30px; font-weight: 600; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">Compliance Command Center</div>
+        <div>林專員 | 金融合規部</div>
+    </header>
+    
+    <main class="bento-grid">
+        <!-- Action Center -->
+        <section class="card action-center">
+            <div class="card-header">
+                <h2 class="card-title">⚡ Action Center (立即處理)</h2>
+                <span class="risk-badge risk-high">3 件高風險</span>
+            </div>
+            <p style="color: var(--text-sub); margin-bottom: 1.5rem;">讓主管 10 秒內知道今天必須立即處理的事項。</p>
+            
+            <div class="action-item">
+                <div>
+                    <strong>CASE-2026-0801</strong><br>
+                    <span style="font-size: 0.85rem; color: var(--text-sub);">高齡客戶投資型保單爭議 - AI 判定高風險</span>
+                </div>
+                <div style="text-align: right;">
+                    <div style="color: var(--red); font-weight: 600;">SLA: 剩餘 2 小時</div>
+                    <span style="font-size: 0.85rem; color: var(--text-sub);">等待主管決策</span>
+                </div>
+            </div>
+            <div class="action-item">
+                <div>
+                    <strong>CASE-2026-0802</strong><br>
+                    <span style="font-size: 0.85rem; color: var(--text-sub);">信用卡盜刷申訴 - 流程卡住</span>
+                </div>
+                <div style="text-align: right;">
+                    <div style="color: var(--orange); font-weight: 600;">SLA: 剩餘 1 天</div>
+                    <span style="font-size: 0.85rem; color: var(--text-sub);">需跨部門協調</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- KPI Overview -->
+        <section class="card kpi-overview">
+            <div class="kpi-card">
+                <div class="card-title">整體風險分數</div>
+                <div class="kpi-value">84<span style="font-size: 1rem; color: var(--text-sub);">/100</span></div>
+            </div>
+            <div class="kpi-card">
+                <div class="card-title">今日進件 / 結案</div>
+                <div class="kpi-value" style="color: var(--gold);">12 / 8</div>
+            </div>
+        </section>
+
+        <!-- AIAssistant (Prominent in Bento) -->
+        <section class="card ai-assistant">
+            <div class="card-header">
+                <h2 class="card-title">✨ AI 合規顧問 (Genie)</h2>
+            </div>
+            <p>你好，我是你的合規精靈。今天有什麼可以協助你的？</p>
+            <div class="ai-chat-bar">
+                <input type="text" class="ai-input" placeholder="例如：幫我分析本週信用卡爭議的根本原因...">
+                <button class="ai-btn">送出分析</button>
+            </div>
+        </section>
+
+        <!-- Trend Analysis -->
+        <section class="card trend-analysis">
+            <div class="card-header">
+                <h2 class="card-title">📈 Trend Analysis (趨勢)</h2>
+            </div>
+            <div style="height: 200px; display: flex; align-items: flex-end; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0;">
+                <div style="width: 20%; height: 40%; background: #e2e8f0; border-radius: 4px;"></div>
+                <div style="width: 20%; height: 60%; background: #e2e8f0; border-radius: 4px;"></div>
+                <div style="width: 20%; height: 50%; background: #e2e8f0; border-radius: 4px;"></div>
+                <div style="width: 20%; height: 90%; background: var(--blue); border-radius: 4px; position: relative;">
+                    <span style="position: absolute; top: -25px; left: 50%; transform: translateX(-50%); font-size: 0.8rem; font-weight: bold; color: var(--blue);">+45%</span>
+                </div>
+                <div style="width: 20%; height: 30%; background: #e2e8f0; border-radius: 4px;"></div>
+            </div>
+            <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--text-sub);">本週信用卡爭議上升 45%，請留意。</p>
+        </section>
+
+        <!-- Root Cause Analysis -->
+        <section class="card root-cause">
+            <div class="card-header">
+                <h2 class="card-title">🎯 Root Cause</h2>
+            </div>
+            <ul style="list-style: none; font-size: 0.9rem;">
+                <li style="margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #f1f5f9;">
+                    <div style="font-weight: 600;">1. 業務說明不清</div>
+                    <div style="color: var(--text-sub);">影響 34 件 | 投資型商品</div>
+                </li>
+                <li style="margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #f1f5f9;">
+                    <div style="font-weight: 600;">2. 系統扣款異常</div>
+                    <div style="color: var(--text-sub);">影響 28 件 | 信用卡</div>
+                </li>
+            </ul>
+        </section>
+
+        <!-- Pending Cases -->
+        <section class="card pending-cases">
+            <div class="card-header">
+                <h2 class="card-title">⏳ Pending</h2>
+            </div>
+            <div style="font-size: 0.9rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span>等待法務確認</span>
+                    <strong>12</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span>等待客戶回覆</span>
+                    <strong>8</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span>等待主管簽核</span>
+                    <strong style="color: var(--orange);">5</strong>
+                </div>
+            </div>
+        </section>
+
+    </main>
+</body>
+</html>

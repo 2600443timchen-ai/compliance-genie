@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compliance Command Center - Dark Mode</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold: #C5A059;
+            --blue: #4f8aff; /* Lighter blue for dark mode */
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: rgba(255,255,255,0.1);
+            --red: #f87171;
+            --green: #34d399;
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text-main); margin: 0; padding: 2rem; }
+        
+        header { display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 2rem; }
+        .logo { font-family: 'Outfit'; font-size: 1.8rem; font-weight: 700; color: var(--gold); }
+        
+        .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1rem; }
+        .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
+        
+        /* Layout */
+        .panel-action { grid-column: span 12; border: 1px solid var(--red); box-shadow: 0 0 15px rgba(248, 113, 113, 0.2); }
+        .panel-kpi { grid-column: span 3; text-align: center; }
+        .panel-trend { grid-column: span 8; }
+        .panel-root { grid-column: span 4; }
+        .panel-ai { grid-column: span 12; background: linear-gradient(90deg, rgba(30,41,59,1) 0%, rgba(197,160,89,0.15) 100%); }
+        
+        h3 { margin-top: 0; font-size: 1rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+        
+        .kpi-val { font-family: 'Outfit'; font-size: 3rem; font-weight: 700; margin: 1rem 0; }
+        
+        .alert-item { display: flex; justify-content: space-between; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 0.5rem; }
+        
+        .ai-input { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: white; padding: 1rem; border-radius: 8px; font-size: 1rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">GENIE COMMAND CENTER</div>
+        <div>System Status: <span style="color: var(--green);">ONLINE</span></div>
+    </header>
+    
+    <div class="grid">
+        <!-- Action Center -->
+        <div class="panel panel-action">
+            <h3 style="color: var(--red);">Action Center</h3>
+            <div class="alert-item">
+                <div>[CRITICAL] High volume of credit card disputes detected. SLA breach imminent for 5 cases.</div>
+                <button style="background: var(--red); color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px;">Take Action</button>
+            </div>
+        </div>
+        
+        <!-- KPIs -->
+        <div class="panel panel-kpi">
+            <h3>Risk Index</h3>
+            <div class="kpi-val" style="color: var(--gold);">88</div>
+        </div>
+        <div class="panel panel-kpi">
+            <h3>Active Cases</h3>
+            <div class="kpi-val">124</div>
+        </div>
+        <div class="panel panel-kpi">
+            <h3>SLA Compliance</h3>
+            <div class="kpi-val" style="color: var(--green);">94%</div>
+        </div>
+        <div class="panel panel-kpi">
+            <h3>AI Confidence</h3>
+            <div class="kpi-val" style="color: var(--blue);">98%</div>
+        </div>
+        
+        <!-- Trend -->
+        <div class="panel panel-trend">
+            <h3>Trend Analysis</h3>
+            <div style="height: 200px; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border); margin-top: 1rem; color: var(--text-muted);">
+                Data Visualization Node
+            </div>
+        </div>
+        
+        <!-- Root Cause -->
+        <div class="panel panel-root">
+            <h3>Root Cause</h3>
+            <ul style="list-style: none; padding: 0; margin-top: 1rem;">
+                <li style="margin-bottom: 1rem; display: flex; justify-content: space-between;">
+                    <span>System Outage</span> <span style="color: var(--gold);">45%</span>
+                </li>
+                <li style="margin-bottom: 1rem; display: flex; justify-content: space-between;">
+                    <span>Human Error</span> <span>30%</span>
+                </li>
+                <li style="margin-bottom: 1rem; display: flex; justify-content: space-between;">
+                    <span>Policy Update</span> <span>25%</span>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- AI Assistant -->
+        <div class="panel panel-ai">
+            <h3 style="color: var(--gold);">Genie Intelligence</h3>
+            <p>Based on current trends, I predict a 15% increase in cases tomorrow. Would you like to adjust staffing allocations?</p>
+            <input type="text" class="ai-input" placeholder="Give Genie a command...">
+        </div>
+    </div>
+</body>
+</html>

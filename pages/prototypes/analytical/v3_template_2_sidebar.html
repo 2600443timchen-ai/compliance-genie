@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compliance Command Center - Enterprise Sidebar</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold: #C5A059;
+            --blue: #1E3A8A;
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+            --border: #e2e8f0;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* Left Sidebar */
+        aside.main-nav {
+            width: 250px;
+            background: var(--blue);
+            color: white;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+        .nav-logo { font-family: 'Outfit'; font-size: 1.2rem; font-weight: 700; margin-bottom: 3rem; color: var(--gold); }
+        .nav-item { padding: 0.8rem 1rem; border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer; transition: background 0.2s; }
+        .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.1); }
+        
+        /* Main Content */
+        main.content-area {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        header { display: flex; justify-content: space-between; margin-bottom: 2rem; }
+        h1 { font-family: 'Outfit'; font-size: 1.8rem; }
+        
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+        }
+        
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .card-header { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+        
+        /* Right Sidebar (AI) */
+        aside.ai-sidebar {
+            width: 320px;
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+        .ai-header { padding: 1.5rem; border-bottom: 1px solid var(--border); background: linear-gradient(135deg, rgba(197, 160, 89, 0.1), rgba(30, 58, 138, 0.1)); }
+        .ai-chat-area { flex: 1; padding: 1.5rem; overflow-y: auto; }
+        .ai-input-area { padding: 1.5rem; border-top: 1px solid var(--border); }
+        .ai-input { width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 0.5rem; }
+        .btn { background: var(--blue); color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; width: 100%; }
+        
+        /* Elements */
+        .kpi-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+        .kpi-box { flex: 1; background: white; border: 1px solid var(--border); padding: 1rem; border-radius: 8px; text-align: center; }
+        .kpi-val { font-size: 2rem; font-weight: 700; color: var(--blue); }
+        
+        .list-item { display: flex; justify-content: space-between; padding: 0.8rem 0; border-bottom: 1px dashed var(--border); font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <aside class="main-nav">
+        <div class="nav-logo">Genie Command</div>
+        <div class="nav-item active">Dashboard</div>
+        <div class="nav-item">Action Center</div>
+        <div class="nav-item">Cases</div>
+        <div class="nav-item">Reports</div>
+    </aside>
+    
+    <main class="content-area">
+        <header>
+            <h1>Overview</h1>
+            <div style="color: var(--text-sub);">Last updated: Just now</div>
+        </header>
+        
+        <div class="kpi-row">
+            <div class="kpi-box">
+                <div style="color: var(--text-sub); font-size: 0.9rem;">Pending SLA</div>
+                <div class="kpi-val" style="color: #ef4444;">12</div>
+            </div>
+            <div class="kpi-box">
+                <div style="color: var(--text-sub); font-size: 0.9rem;">High Risk</div>
+                <div class="kpi-val">3</div>
+            </div>
+            <div class="kpi-box">
+                <div style="color: var(--text-sub); font-size: 0.9rem;">Resolved Today</div>
+                <div class="kpi-val" style="color: #10b981;">28</div>
+            </div>
+        </div>
+        
+        <div class="grid-layout">
+            <div class="main-column">
+                <div class="card">
+                    <div class="card-header">Action Center</div>
+                    <div class="list-item">
+                        <div><strong>[Critical]</strong> 投資型保單爭議 (SLA < 2hr)</div>
+                        <button style="border: 1px solid var(--gold); background: transparent; color: var(--gold); border-radius: 4px; padding: 2px 8px;">Review</button>
+                    </div>
+                    <div class="list-item">
+                        <div><strong>[Warning]</strong> 信用卡爭議激增 (AI Alert)</div>
+                        <button style="border: 1px solid var(--gold); background: transparent; color: var(--gold); border-radius: 4px; padding: 2px 8px;">Review</button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">Trend Analysis</div>
+                    <div style="height: 150px; background: repeating-linear-gradient(0deg, transparent, transparent 19px, var(--border) 20px); position: relative;">
+                        <!-- Mock Chart -->
+                        <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <polyline points="0,80 20,60 40,70 60,30 80,40 100,10" fill="none" stroke="var(--blue)" stroke-width="2"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="side-column">
+                <div class="card">
+                    <div class="card-header">Root Cause</div>
+                    <div class="list-item"><span>業務說明不清</span> <span>45%</span></div>
+                    <div class="list-item"><span>系統異常</span> <span>30%</span></div>
+                    <div class="list-item"><span>客戶認知落差</span> <span>25%</span></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">Pending Cases</div>
+                    <div class="list-item"><span>法務審核</span> <span>15</span></div>
+                    <div class="list-item"><span>主管簽核</span> <span>8</span></div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <aside class="ai-sidebar">
+        <div class="ai-header">
+            <h3 style="color: var(--blue);">AI Assistant</h3>
+            <span style="font-size: 0.8rem; color: var(--text-sub);">Always on</span>
+        </div>
+        <div class="ai-chat-area">
+            <div style="background: var(--bg); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem;">
+                I've noticed a 30% spike in credit card disputes today. Would you like me to generate a root cause summary?
+            </div>
+        </div>
+        <div class="ai-input-area">
+            <input type="text" class="ai-input" placeholder="Ask AI...">
+            <button class="btn">Send</button>
+        </div>
+    </aside>
+</body>
+</html>

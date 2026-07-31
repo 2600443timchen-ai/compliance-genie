@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compliance Command Center - SaaS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold: #C5A059;
+            --blue: #1E3A8A;
+            --bg: #f3f4f6;
+            --surface: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --radius: 16px;
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 2rem; color: var(--text-main); }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        .title { font-family: 'Outfit'; font-size: 2rem; font-weight: 700; color: var(--blue); }
+        
+        .dashboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+        .card { background: var(--surface); border-radius: var(--radius); padding: 1.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); }
+        .card-full { grid-column: 1 / -1; }
+        
+        .card-title { font-size: 1rem; font-weight: 600; color: var(--text-muted); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        
+        .number-huge { font-size: 3rem; font-weight: 700; font-family: 'Outfit'; color: var(--blue); }
+        .trend-up { color: #ef4444; font-size: 0.9rem; }
+        .trend-down { color: #10b981; font-size: 0.9rem; }
+        
+        .action-list { display: flex; flex-direction: column; gap: 1rem; }
+        .action-card { background: #f9fafb; border-left: 4px solid var(--gold); padding: 1rem; border-radius: 4px; }
+        
+        /* Floating AI Button */
+        .fab-ai {
+            position: fixed; bottom: 2rem; right: 2rem; width: 60px; height: 60px;
+            background: linear-gradient(135deg, var(--gold), var(--blue));
+            border-radius: 50%; box-shadow: 0 10px 25px rgba(30,58,138,0.3);
+            display: flex; justify-content: center; align-items: center; color: white;
+            font-size: 1.5rem; cursor: pointer; transition: transform 0.2s;
+        }
+        .fab-ai:hover { transform: scale(1.1); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">Command Center</div>
+        <div style="background: white; padding: 0.5rem 1rem; border-radius: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">August 2026</div>
+    </div>
+    
+    <div class="dashboard">
+        <div class="card card-full">
+            <div class="card-title">⚡ ACTION CENTER</div>
+            <div class="action-list">
+                <div class="action-card" style="border-left-color: #ef4444;">
+                    <div style="font-weight: 600;">[Urgent] 3 Investment disputes approaching SLA limit (2 hrs)</div>
+                    <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">AI Recommendation: Escalate to Senior Manager immediately.</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">RISK SCORE</div>
+            <div class="number-huge">72</div>
+            <div class="trend-up">↑ +5% from last week</div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">PENDING CASES</div>
+            <div class="number-huge">48</div>
+            <div style="color: var(--text-muted); font-size: 0.9rem;">12 require your attention</div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">ROOT CAUSE (TOP)</div>
+            <div style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem;">Misleading Sales</div>
+            <div style="color: var(--text-muted); font-size: 0.9rem;">Accounts for 40% of cases this month</div>
+        </div>
+        
+        <div class="card card-full">
+            <div class="card-title">TREND ANALYSIS</div>
+            <div style="height: 150px; background: #f9fafb; border-radius: 8px; display: flex; justify-content: center; align-items: center; color: var(--text-muted);">
+                [ Interactive Line Chart Placeholder ]
+            </div>
+        </div>
+    </div>
+    
+    <!-- Floating Action Button for AI -->
+    <div class="fab-ai">✨</div>
+</body>
+</html>

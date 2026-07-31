@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compliance Command Center - Interactive Workspace</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold: #C5A059;
+            --blue: #1E3A8A;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --red: #ef4444;
+            --orange: #f59e0b;
+        }
+
+        /* CSS reset and base */
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; overflow-x: hidden; color: var(--text-main); }
+        
+        /* Layout */
+        .dashboard { padding: 2rem; max-width: 1400px; margin: 0 auto; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .dashboard.shifted { transform: translateX(-15%) scale(0.98); opacity: 0.8; } 
+        
+        .overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(15, 23, 42, 0.4); opacity: 0; pointer-events: none; transition: opacity 0.4s ease; z-index: 10; backdrop-filter: blur(2px); }
+        .overlay.active { opacity: 1; pointer-events: auto; }
+        
+        /* Right Drawer */
+        .drawer {
+            position: fixed; top: 0; right: -75%; width: 75%; height: 100vh; background: var(--surface);
+            box-shadow: -20px 0 50px rgba(0,0,0,0.15); transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 20; display: flex;
+        }
+        .drawer.open { right: 0; }
+        
+        /* Drawer Content Split: Case Details (left) and AI Assistant (right) */
+        .drawer-content { flex: 2; padding: 2.5rem; overflow-y: auto; border-right: 1px solid var(--border); }
+        .drawer-ai { flex: 1; background: #f1f5f9; padding: 2.5rem; overflow-y: auto; display: flex; flex-direction: column; }
+        
+        /* Dashboard Elements */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; }
+        
+        .action-center { 
+            background: var(--surface); 
+            border-left: 5px solid var(--red); 
+            border-radius: 12px; 
+            padding: 1.5rem; 
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); 
+            margin-bottom: 2.5rem; 
+        }
+        .action-item { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 1.5rem; border: 1px solid var(--border); border-radius: 8px; 
+            margin-bottom: 1rem; cursor: pointer; background: #fff;
+            transition: all 0.2s; 
+        }
+        .action-item:hover { 
+            background: #fafafa; 
+            transform: translateX(4px); 
+            border-color: #cbd5e1; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+        }
+        
+        .kpi-row { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
+        .kpi-card { flex: 1; background: var(--surface); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        
+        /* Buttons */
+        .btn { padding: 0.6rem 1.2rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: background 0.2s; }
+        .btn-primary { background: var(--blue); color: white; }
+        .btn-primary:hover { background: #152c6b; }
+        
+        /* AI loading skeleton */
+        .skeleton { background: #cbd5e1; border-radius: 6px; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 2rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+        .tab { font-weight: 500; color: var(--text-muted); cursor: pointer; padding-bottom: 0.8rem; position: relative; transition: color 0.2s; }
+        .tab:hover { color: var(--text-main); }
+        .tab.active { font-weight: 600; color: var(--blue); }
+        .tab.active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 3px; background: var(--blue); border-radius: 3px 3px 0 0; }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="overlay" onclick="closeDrawer()"></div>
+    
+    <div class="dashboard" id="mainDashboard">
+        <header class="header">
+            <div>
+                <h1 style="margin: 0; font-family: 'Outfit'; color: var(--blue);">Command Center</h1>
+                <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.2rem;">Enterprise Compliance Workspace</div>
+            </div>
+            <div style="font-weight: 500;">林專員 | 金融合規部</div>
+        </header>
+        
+        <!-- Action Center: Priority 1 (Action First Layout) -->
+        <section class="action-center">
+            <h2 style="color: var(--red); margin-top: 0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                Action Center (立即處理)
+            </h2>
+            
+            <div class="action-item" onclick="openDrawer('CASE-2026-0801', '投資型保單爭議 - 高齡客戶')">
+                <div>
+                    <div style="font-weight: 700; font-size: 1.2rem; margin-bottom: 0.4rem;">[CRITICAL] 投資型保單爭議 - 高齡客戶</div>
+                    <div style="color: var(--text-muted); font-size: 0.95rem;">ID: CASE-2026-0801 | AI 判定高風險，疑似不當銷售</div>
+                </div>
+                <div style="text-align: right; display: flex; align-items: center; gap: 1.5rem;">
+                    <div>
+                        <div style="color: var(--red); font-weight: bold; font-size: 1.1rem; margin-bottom: 0.2rem;">SLA: 剩餘 2 小時</div>
+                        <div style="color: var(--text-muted); font-size: 0.85rem;">等待主管決策</div>
+                    </div>
+                    <button class="btn btn-primary">處理案件</button>
+                </div>
+            </div>
+            
+            <div class="action-item" onclick="openDrawer('CASE-2026-0802', '信用卡異常交易申訴')">
+                <div>
+                    <div style="font-weight: 600; font-size: 1.2rem; margin-bottom: 0.4rem;">[WARNING] 信用卡異常交易申訴</div>
+                    <div style="color: var(--text-muted); font-size: 0.95rem;">ID: CASE-2026-0802 | 流程卡住，等待跨部門確認</div>
+                </div>
+                <div style="text-align: right; display: flex; align-items: center; gap: 1.5rem;">
+                    <div>
+                        <div style="color: var(--orange); font-weight: bold; font-size: 1.1rem; margin-bottom: 0.2rem;">SLA: 剩餘 1 天</div>
+                        <div style="color: var(--text-muted); font-size: 0.85rem;">跨部門協調</div>
+                    </div>
+                    <button class="btn btn-primary" style="background: #334155;">檢視案件</button>
+                </div>
+            </div>
+        </section>
+        
+        <div class="kpi-row">
+            <div class="kpi-card">
+                <div style="color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; font-size: 0.85rem;">Active Cases</div>
+                <div style="font-family: 'Outfit'; font-size: 2.5rem; font-weight: 700; margin-top: 0.5rem;">42</div>
+            </div>
+            <div class="kpi-card">
+                <div style="color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; font-size: 0.85rem;">Overall Risk Score</div>
+                <div style="font-family: 'Outfit'; font-size: 2.5rem; font-weight: 700; margin-top: 0.5rem; color: var(--blue);">76 <span style="font-size: 1rem; color: var(--red);">↑ 4%</span></div>
+            </div>
+            <div class="kpi-card">
+                <div style="color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; font-size: 0.85rem;">AI Confidence</div>
+                <div style="font-family: 'Outfit'; font-size: 2.5rem; font-weight: 700; margin-top: 0.5rem; color: #10b981;">94%</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Drawer: Workspace (No Reload Drill-down) -->
+    <div class="drawer" id="rightDrawer">
+        <!-- Case Details (Left side of Drawer) -->
+        <div class="drawer-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <div>
+                    <span style="background: var(--red); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; margin-bottom: 0.5rem; display: inline-block;">CRITICAL SLA</span>
+                    <h2 id="drawerTitle" style="margin: 0; font-family: 'Outfit'; color: var(--blue); font-size: 1.8rem;">案件詳情</h2>
+                </div>
+                <button onclick="closeDrawer()" style="background: #f1f5f9; border: none; font-size: 1.5rem; cursor: pointer; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">&times;</button>
+            </div>
+            
+            <div class="tabs">
+                <div class="tab active" onclick="simulateTabSwitch(this, 'summary')">案件摘要與供述</div>
+                <div class="tab" onclick="simulateTabSwitch(this, 'law')">法務與合規意見</div>
+                <div class="tab" onclick="simulateTabSwitch(this, 'history')">案件軌跡 (Timeline)</div>
+            </div>
+            
+            <div id="tabContent" style="font-size: 1rem; line-height: 1.6;">
+                <div style="background: #f8fafc; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid var(--border);">
+                    <div style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">[ 客戶訴求 ]</div>
+                    <p style="margin: 0;">客戶（72歲）致電客服表示，購買「真富貴投資型保單」時，業務員未明確告知提前解約將損失 30% 本金。客戶主張當時以為是定存，要求全額退還本金 200 萬元。</p>
+                </div>
+                
+                <div style="background: #f8fafc; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid var(--border);">
+                    <div style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">[ 業務員回覆 ]</div>
+                    <p style="margin: 0;">業務員堅稱已於簽約時口頭詳細說明風險，並且有依照公司規定進行錄音存證。</p>
+                </div>
+                
+                <div style="background: #fef2f2; padding: 1.5rem; border-left: 4px solid var(--red); border-radius: 0 8px 8px 0;">
+                    <div style="color: var(--red); font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        系統警示
+                    </div>
+                    <p style="margin: 0;">客戶年齡超過 70 歲，屬於高齡族群，適用金管會「金融消費者保護法」高齡防護特別條款。</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI Assistant Sidebar (Right side of Drawer) - Context Sync -->
+        <div class="drawer-ai">
+            <h3 style="margin-top: 0; color: var(--gold); display: flex; align-items: center; gap: 0.5rem; font-family: 'Outfit'; font-size: 1.4rem;">
+                ✨ Genie AI 幕僚
+            </h3>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-top: -0.5rem; margin-bottom: 2rem;">跟隨您的檢視進度，動態提供建議。</p>
+            
+            <div id="aiSyncArea">
+                <!-- Initial loading state -->
+            </div>
+            
+            <div style="margin-top: auto;">
+                <input type="text" placeholder="向 Genie 詢問更多關於此案的細節..." style="width: 100%; padding: 1rem; border-radius: 8px; border: 1px solid var(--border); font-size: 0.95rem;">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openDrawer(caseId, title) {
+            document.getElementById('overlay').classList.add('active');
+            document.getElementById('mainDashboard').classList.add('shifted');
+            document.getElementById('rightDrawer').classList.add('open');
+            document.getElementById('drawerTitle').innerText = caseId + ' ' + title;
+            
+            // Reset Tabs to summary
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(t => t.classList.remove('active'));
+            tabs[0].classList.add('active');
+            
+            // Set AI to loading state, demonstrating asynchronous Context Sync
+            const aiArea = document.getElementById('aiSyncArea');
+            aiArea.innerHTML = `
+                <div style="color: var(--blue); font-size: 0.95rem; font-weight: 500; margin-bottom: 1rem;">正在分析案件上下文...</div>
+                <div class="skeleton" style="height: 80px; margin-bottom: 1rem;"></div>
+                <div class="skeleton" style="height: 120px;"></div>
+            `;
+            
+            // Simulate AI async response based on Case details (Flow 1)
+            setTimeout(() => {
+                aiArea.innerHTML = `
+                    <div style="background: white; padding: 1.2rem; border-radius: 8px; margin-bottom: 1.2rem; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 1px solid var(--border);">
+                        <div style="font-weight: 700; color: var(--blue); margin-bottom: 0.8rem; display: flex; justify-content: space-between;">
+                            🤖 AI 案件診斷
+                            <span style="font-size: 0.75rem; background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 4px;">Confidence 96%</span>
+                        </div>
+                        <p style="font-size: 0.95rem; margin: 0; line-height: 1.6;">本案涉及高齡消費者。根據金管會規定，金融機構應對高齡客戶落實 KYP 及 KYC，並需有第三人陪同或錄音錄影。</p>
+                    </div>
+                    
+                    <div style="background: white; padding: 1.2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 1px solid var(--border);">
+                        <div style="font-weight: 700; color: var(--blue); margin-bottom: 0.8rem;">📚 建議引用法規 (自動帶入)</div>
+                        <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8; color: var(--text-main);">
+                            <li><a href="#" style="color: var(--blue);">金融消費者保護法 第 9 條 (適合度原則)</a></li>
+                            <li><a href="#" style="color: var(--blue);">保險業招攬及核保理賠辦法 第 6 條</a></li>
+                        </ul>
+                    </div>
+                `;
+            }, 600);
+        }
+
+        function closeDrawer() {
+            document.getElementById('overlay').classList.remove('active');
+            document.getElementById('mainDashboard').classList.remove('shifted');
+            document.getElementById('rightDrawer').classList.remove('open');
+        }
+        
+        // Flow 3: AI Sync interaction
+        function simulateTabSwitch(element, tab) {
+            // Update tabs UI
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(t => t.classList.remove('active'));
+            element.classList.add('active');
+            
+            // Update Tab Content (Mocking content change without reload)
+            const content = document.getElementById('tabContent');
+            if(tab === 'summary') {
+                content.innerHTML = `
+                    <div style="background: #f8fafc; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid var(--border);">
+                        <div style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">[ 客戶訴求 ]</div>
+                        <p style="margin: 0;">客戶（72歲）致電客服表示，購買「真富貴投資型保單」時，業務員未明確告知提前解約將損失 30% 本金。客戶主張當時以為是定存，要求全額退還本金 200 萬元。</p>
+                    </div>
+                    <div style="background: #f8fafc; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid var(--border);">
+                        <div style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">[ 業務員回覆 ]</div>
+                        <p style="margin: 0;">業務員堅稱已於簽約時口頭詳細說明風險，並且有依照公司規定進行錄音存證。</p>
+                    </div>
+                `;
+            } else if (tab === 'law') {
+                content.innerHTML = `
+                    <div style="padding: 1rem 0;">
+                        <h4 style="margin-top: 0;">法務部初步審核 (Pending)</h4>
+                        <p>等待法務專員確認錄音檔內容是否符合銷售規範。需要業務單位提供錄音檔逐字稿與簽收文件。</p>
+                        <button class="btn btn-primary" style="margin-top: 1rem;">催告業務單位</button>
+                    </div>
+                `;
+            } else if (tab === 'history') {
+                content.innerHTML = `
+                    <div style="padding: 1rem 0;">
+                        <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                            <div style="color: var(--text-muted); font-size: 0.9rem; width: 100px;">Today 09:30</div>
+                            <div>案件進件，AI 判定高風險 SLA 啟動</div>
+                        </div>
+                        <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                            <div style="color: var(--text-muted); font-size: 0.9rem; width: 100px;">Today 10:15</div>
+                            <div>主管指派予林專員</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // AI Sync - dynamically change AI suggestions based on what user is looking at
+            const aiArea = document.getElementById('aiSyncArea');
+            aiArea.innerHTML = `
+                <div class="skeleton" style="height: 100px; margin-bottom: 1rem;"></div>
+            `;
+            
+            setTimeout(() => {
+                if (tab === 'law') {
+                    aiArea.innerHTML = `
+                        <div style="background: white; padding: 1.2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(197, 160, 89, 0.2); border: 1px solid var(--gold);">
+                            <div style="font-weight: 700; color: var(--gold); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem;">
+                                ✨ Genie 行動建議
+                            </div>
+                            <p style="font-size: 0.95rem; margin: 0 0 1rem 0; line-height: 1.6;">偵測到您正在查閱法務意見。是否需要我為您草擬一份回覆給法務部門的確認信，要求調閱業務員當時的錄音檔？</p>
+                            <button class="btn" style="background: linear-gradient(135deg, var(--gold), var(--blue)); color: white; width: 100%;">自動生成草稿</button>
+                        </div>
+                    `;
+                } else if (tab === 'history') {
+                    aiArea.innerHTML = `
+                        <div style="background: white; padding: 1.2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 1px solid var(--border);">
+                            <div style="font-weight: 700; color: var(--blue); margin-bottom: 0.8rem;">🔍 歷史相似案件推薦</div>
+                            <div style="font-size: 0.95rem; margin-bottom: 1rem; padding: 0.8rem; background: #f8fafc; border-radius: 6px;">
+                                <strong>CASE-2025-1102</strong><br>
+                                <div style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.3rem;">最終判定：業務員確實未落實 KYC，銀行方需退還 50% 違約金</div>
+                            </div>
+                            <button class="btn btn-primary" style="width: 100%; background: #334155;">查看該案判決書</button>
+                        </div>
+                    `;
+                } else {
+                    // Restore summary AI
+                    aiArea.innerHTML = `
+                        <div style="background: white; padding: 1.2rem; border-radius: 8px; margin-bottom: 1.2rem; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 1px solid var(--border);">
+                            <div style="font-weight: 700; color: var(--blue); margin-bottom: 0.8rem; display: flex; justify-content: space-between;">
+                                🤖 AI 案件診斷
+                                <span style="font-size: 0.75rem; background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 4px;">Confidence 96%</span>
+                            </div>
+                            <p style="font-size: 0.95rem; margin: 0; line-height: 1.6;">本案涉及高齡消費者。根據金管會規定，金融機構應對高齡客戶落實 KYP 及 KYC，並需有第三人陪同或錄音錄影。</p>
+                        </div>
+                        <div style="background: white; padding: 1.2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 1px solid var(--border);">
+                            <div style="font-weight: 700; color: var(--blue); margin-bottom: 0.8rem;">📚 建議引用法規 (自動帶入)</div>
+                            <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8; color: var(--text-main);">
+                                <li><a href="#" style="color: var(--blue);">金融消費者保護法 第 9 條 (適合度原則)</a></li>
+                                <li><a href="#" style="color: var(--blue);">保險業招攬及核保理賠辦法 第 6 條</a></li>
+                            </ul>
+                        </div>
+                    `;
+                }
+            }, 400); // Slight delay for realistic AI loading feel
+        }
+    </script>
+</body>
+</html>
