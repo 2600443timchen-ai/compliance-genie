@@ -827,9 +827,9 @@ async function sendQuestionToApi(questionText) {
 
   const bubble = aiRow.querySelector('.message-bubble');
 
-  // 建立案件背景 context
+  // 建立案件背景 context，將前端畫面的真實靜態數據餵給 AI，防止幻覺
   const caseCtx = activeCaseId && caseDb[activeCaseId]
-    ? `[金融消費爭議案件背景]\n案號: ${caseDb[activeCaseId].id}\n案件類型: ${caseDb[activeCaseId].type}\n爭議要點: ${caseDb[activeCaseId].item}\n爭議金額: ${caseDb[activeCaseId].amount}\n\n`
+    ? `[金融消費爭議案件背景]\n案號: ${caseDb[activeCaseId].id}\n申訴人: ${caseDb[activeCaseId].applicant}\n案件類型: ${caseDb[activeCaseId].type}\n爭議要點: ${caseDb[activeCaseId].item}\n爭議金額: ${caseDb[activeCaseId].amount}\n案件摘要: ${caseDb[activeCaseId].summary.join(' ')}\n\n`
     : '';
 
   // 1. 動態取得 Chat ID
