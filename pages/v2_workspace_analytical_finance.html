@@ -59,8 +59,23 @@
   <section class="search-section switcher">
     <div class="hero-pill-container">
       <div class="segmented-nav">
-        <button class="segmented-btn" onclick="location.href='v2_workspace_finance.html'">▧ <span>案件處置工作台</span></button>
-        <button class="segmented-btn active">▦ <span>全局風險洞察雷達</span><span class="badge-new">VISION</span></button>
+        <button class="segmented-btn" title="切換至單一案件處置工作台" onclick="location.href='v2_workspace_finance.html'">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+          <span>案件處置工作台</span>
+        </button>
+        <button class="segmented-btn active" title="目前視圖：全局風險洞察雷達">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span>全局風險洞察雷達</span>
+          <span class="badge-new">VISION</span>
+        </button>
       </div>
     </div>
   </section>
@@ -87,7 +102,9 @@
         
         <!-- 1. AI Alert -->
         <section class="vision-card alert-card">
-          <div class="card-icon alert-icon">🚨</div>
+          <div class="card-icon alert-icon">
+            <svg width="24" height="24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          </div>
           <div class="card-content">
             <h2>AI 異常偵測警報</h2>
             <p class="alert-desc">系統偵測到 <strong>「投資型保單」</strong> 相關爭議在過去兩週內激增 <strong>35%</strong>。</p>
@@ -106,7 +123,9 @@
 
         <!-- 2. Governance Suggestions -->
         <section class="vision-card suggestion-card">
-          <div class="card-icon suggestion-icon">🤖</div>
+          <div class="card-icon suggestion-icon">
+            <svg width="24" height="24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          </div>
           <div class="card-content">
             <h2>Genie 跨部門治理建議</h2>
             <p class="card-subtext">為避免裁罰擴大，AI 已草擬以下防堵方案：</p>
@@ -133,7 +152,9 @@
 
         <!-- 3. Fine Risk Exposure -->
         <section class="vision-card risk-card">
-          <div class="card-icon risk-icon">⚠️</div>
+          <div class="card-icon risk-icon">
+            <svg width="24" height="24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          </div>
           <div class="card-content">
             <h2>潛在裁罰曝險</h2>
             <p class="card-subtext">本月累積高風險超時案件之潛在罰款總計。</p>
@@ -149,7 +170,9 @@
 
         <!-- 4. Regulation Changes -->
         <section class="vision-card reg-card">
-          <div class="card-icon reg-icon">📜</div>
+          <div class="card-icon reg-icon">
+            <svg width="24" height="24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+          </div>
           <div class="card-content">
             <h2>重大法規動態</h2>
             <ul class="action-list">
@@ -179,7 +202,7 @@
         <!-- Left: SLA Progress -->
         <section class="vision-card operational-panel">
           <div class="panel-header">
-            <h2>👥 各部門處理達標率 (SLA)</h2>
+            <h2>各部門處理達標率 (SLA)</h2>
             <button class="text-button">檢視詳情</button>
           </div>
           <div class="panel-content">
@@ -210,7 +233,7 @@
         <!-- Right: Overdue Fine Tracking -->
         <section class="vision-card operational-panel">
           <div class="panel-header">
-            <h2>⏱️ 高風險超時案件追蹤 (SLA > 25 天)</h2>
+            <h2>高風險超時案件追蹤 (SLA > 25 天)</h2>
             <button class="text-button">匯出名單</button>
           </div>
           <div class="panel-content">
