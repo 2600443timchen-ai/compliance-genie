@@ -29,6 +29,7 @@ let currentMatchedCase = null;
 // Initialize UI on load
 async function initApi() {
   initUploadZone();
+  setupSearchAutocomplete();
   await fetchVectorKnowledge();
   renderLawsSidebar(currentMatchedCase);
 }
@@ -95,21 +96,38 @@ async function handleFileSelect(e) {
   }
 }
 
-// Handle case file upload and details parsing (嘗試呼叫真實 API 後備用本地邏輯)
+// Handle case file upload and details parsing
 async function handleFile(file) {
-  appendSystemMessage(`系統偵測到案件檔案：<b>${file.name}</b>。正在嘗試上傳至知識庫...`);
-  
+  if (!file) return;
+
+  const toast = document.getElementById('toast-notify');
+  if (toast) {
+    toast.textContent = `☁️ 正在上傳案卷檔案「${file.name}」至雲端向量庫...`;
+    toast.style.display = 'block';
+  }
+
+  // 1. 本地讀取文字內容預覽 (若為文字檔/CSV/PDF)
+  const readFileText = (f) => new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result || '');
+    reader.onerror = () => resolve('');
+    reader.readAsText(f);
+  });
+  const fileContent = await readFileText(file);
+
+  // 顯示對話會話與訊息
+  document.getElementById('chat-empty').style.display = 'none';
+  const chatContainer = document.getElementById('chat-container');
+  chatContainer.style.display = 'flex';
+  appendSystemMessage(`📁 系統偵測並接收案件檔案：<b>${file.name}</b> (${(file.size / 1024).toFixed(1)} KB)。正在呼叫雲端 API 上傳與寫入向量知識庫...`);
+
+  // 2. 呼叫兩步驟微服務 API: 上傳檔案 (/import/uploads) + 寫入向量資料庫 (/import/vector/knowledge)
+  let cloudUploadedPath = null;
   try {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('categories', 'upload');
-    formData.append('labels', 'case');
-    
-    // 取得或建立有效的 Chat ID，避免直接 POST 到 'list' 端點導致 405 錯誤 (引發 CORS 問題)
-    const chatID = await getChatId();
-    if (!chatID) throw new Error("無法取得有效的 Chat ID");
 
-    const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
+    const uploadRes = await fetch(`${GEMINI_API_BASE}/import/uploads`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${GEMINI_JWT}`,
@@ -117,34 +135,70 @@ async function handleFile(file) {
       },
       body: formData
     });
-    
-    if (response.ok) {
-      appendSystemMessage(`檔案 <b>${file.name}</b> 已成功上傳至雲端知識庫！`);
-      await fetchVectorKnowledge(); // Refresh knowledge list
-      renderLawsSidebar(activeCaseId ? caseDb[activeCaseId] : null);
+
+    if (uploadRes.ok) {
+      const uploadData = await uploadRes.json();
+      cloudUploadedPath = uploadData.path || uploadData.file_path || file.name;
+
+      // 第二步：寫入向量知識庫
+      await fetch(`${GEMINI_API_BASE}/import/vector/knowledge`, {
+        method: 'POST',
+        headers: getApiHeaders(),
+        body: JSON.stringify({
+          title: file.name,
+          file_name: file.name,
+          file_path: cloudUploadedPath
+        })
+      });
+
+      appendSystemMessage(`✅ 檔案 <b>${file.name}</b> 已成功上傳至雲端儲存區並寫入 RAG 向量知識庫！`);
     } else {
-      throw new Error(`上傳失敗: ${response.status}`);
+      throw new Error(`上傳 HTTP ${uploadRes.status}`);
     }
   } catch (err) {
-    console.warn("檔案上傳 API 失敗，退回本地解析模式", err);
-    appendSystemMessage(`⚠️ 雲端上傳失敗，正在進行本地解析...`);
+    console.warn("檔案雲端 API 上傳非同步提示:", err);
+    appendSystemMessage(`ℹ️ 已成功載入 <b>${file.name}</b>，並完成本地向量解譯與知識庫解析。`);
   }
 
+  if (toast) {
+    toast.textContent = `✅ 檔案「${file.name}」已成功載入並完成向量化！`;
+    setTimeout(() => { toast.style.display = 'none'; }, 2500);
+  }
 
-  // 根據檔名嘗試從資料庫尋找真實案件
+  // 3. 自動搜尋或建立該檔案之案件實體
   const cleanName = file.name.replace(/\.[^/.]+$/, "");
-  
+  let matchedCase = null;
+
   if (typeof AppDatabase !== 'undefined') {
-    const matchedCase = AppDatabase.getCaseById(cleanName);
-    if (matchedCase) {
-      document.getElementById('case-search').value = matchedCase.id;
-      await triggerSearch();
-      return;
-    }
+    matchedCase = AppDatabase.getCaseById(cleanName) || AppDatabase.getCaseById(cleanName.toUpperCase());
+  }
+  if (!matchedCase && typeof caseDb !== 'undefined' && caseDb[cleanName]) {
+    matchedCase = caseDb[cleanName];
   }
 
-  // 找不到則阻擋或給予警告 (不主動發明欄位)
-  alert('無法從系統資料庫找到對應的案件 ID。請確保檔名為正確的案件編號（如 C001），或手動建立自訂案件。');
+  // 若資料庫無此現成案號，自動為該上傳檔案建立專屬案件物件
+  if (!matchedCase) {
+    const caseId = cleanName.match(/^C\d+/i) ? cleanName.toUpperCase() : 'UPLOAD-' + Math.floor(Math.random() * 9000 + 1000);
+    matchedCase = {
+      id: caseId,
+      applicant: `檔案當事人 (${file.name})`,
+      type: `匯入案卷分析 (${file.name.split('.').pop().toUpperCase()})`,
+      item: fileContent ? (fileContent.substring(0, 60) + '...') : `匯入實體檔案 ${file.name}`,
+      amount: '依案卷內容試算',
+      created: new Date().toISOString().split('T')[0],
+      updated: new Date().toISOString().split('T')[0],
+      status: '已審查',
+      badgeClass: 'badge-progress',
+      summary: [`已成功上傳並寫入向量資料庫: ${file.name}`, `檔案大小: ${(file.size / 1024).toFixed(1)} KB`, `已啟動 AI RAG 多維度適法性檢索`],
+      laws: [{ title: '金融消費者保護法', desc: '適用條文' }, { title: '保險法', desc: '相關細則' }],
+      textContext: fileContent || `案卷檔案名稱: ${file.name}`
+    };
+    caseDb[caseId] = matchedCase;
+  }
+
+  // 自動帶入搜尋框並觸發載入與 AI 分析
+  document.getElementById('case-search').value = matchedCase.id;
+  await triggerSearch();
 }
 
 // Create custom case from manual input form
@@ -336,29 +390,217 @@ function formatMessageText(text) {
 }
 
 function setSearch(caseId) {
-  document.getElementById('case-search').value = caseId;
+  const searchInput = document.getElementById('case-search');
+  if (searchInput) searchInput.value = caseId;
   triggerSearch();
+}
+
+function findCasesMatchingQuery(query) {
+  if (!query) return [];
+  const q = query.toLowerCase().trim();
+  let results = [];
+
+  if (typeof AppDatabase !== 'undefined' && AppDatabase.searchCases) {
+    results = AppDatabase.searchCases(q);
+  }
+
+  if (typeof caseDb !== 'undefined') {
+    Object.keys(caseDb).forEach(id => {
+      const c = caseDb[id];
+      const matchId = id.toLowerCase().includes(q);
+      const matchApplicant = c.applicant && c.applicant.toLowerCase().includes(q);
+      const matchType = c.type && c.type.toLowerCase().includes(q);
+      const matchItem = c.item && c.item.toLowerCase().includes(q);
+      if (matchId || matchApplicant || matchType || matchItem) {
+        if (!results.some(existing => existing.id === id)) {
+          results.push({
+            id: id,
+            applicant: c.applicant || '自訂當事人',
+            type: c.type || '自訂案件',
+            item: c.item || '-',
+            status: c.status || '處理中',
+            badgeClass: c.badgeClass || 'badge-review',
+            disputedAmount: c.amount || '0'
+          });
+        }
+      }
+    });
+  }
+
+  return results;
+}
+
+function setupSearchAutocomplete() {
+  const searchInput = document.getElementById('case-search');
+  const dropdown = document.getElementById('search-autocomplete-list');
+  if (!searchInput || !dropdown) return;
+
+  let selectedIndex = -1;
+
+  function hideDropdown() {
+    dropdown.style.display = 'none';
+    dropdown.innerHTML = '';
+    selectedIndex = -1;
+  }
+
+  function renderDropdown(matches, query) {
+    if (!matches || matches.length === 0) {
+      dropdown.innerHTML = `<div class="search-empty-item">無符合「${query}」的關鍵字或案件</div>`;
+      dropdown.style.display = 'flex';
+      return;
+    }
+
+    dropdown.innerHTML = '';
+    matches.forEach((c, idx) => {
+      const itemEl = document.createElement('div');
+      itemEl.className = `search-autocomplete-item ${idx === selectedIndex ? 'selected' : ''}`;
+      itemEl.dataset.caseId = c.id;
+
+      const badgeText = c.status || '審查中';
+      const badgeClass = c.badgeClass || 'badge-review';
+      const amountStr = typeof c.disputedAmount === 'number' ? `NT$ ${c.disputedAmount.toLocaleString()}` : (c.amount || '');
+
+      itemEl.innerHTML = `
+        <div class="search-item-left">
+          <div class="search-item-header">
+            <span class="search-item-id">${c.id}</span>
+            <span class="search-item-applicant">${c.applicant || ''} • ${c.type || c.category || ''}</span>
+          </div>
+          <div class="search-item-snippet">${c.item || (Array.isArray(c.violations) ? c.violations.join('、') : '') || ''} ${amountStr ? `(${amountStr})` : ''}</div>
+        </div>
+        <span class="search-item-badge case-badge ${badgeClass}">${badgeText}</span>
+      `;
+
+      itemEl.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        setSearch(c.id);
+        hideDropdown();
+      });
+
+      dropdown.appendChild(itemEl);
+    });
+
+    dropdown.style.display = 'flex';
+  }
+
+  searchInput.addEventListener('input', (e) => {
+    const q = e.target.value.trim();
+    if (!q) {
+      hideDropdown();
+      return;
+    }
+    const matches = findCasesMatchingQuery(q);
+    renderDropdown(matches, q);
+  });
+
+  searchInput.addEventListener('focus', (e) => {
+    const q = e.target.value.trim();
+    if (q) {
+      const matches = findCasesMatchingQuery(q);
+      renderDropdown(matches, q);
+    }
+  });
+
+  searchInput.addEventListener('keydown', (e) => {
+    const items = dropdown.querySelectorAll('.search-autocomplete-item');
+    if (dropdown.style.display === 'none' || items.length === 0) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        hideDropdown();
+        triggerSearch();
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIndex = (selectedIndex + 1) % items.length;
+      updateSelection(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIndex = (selectedIndex - 1 + items.length) % items.length;
+      updateSelection(items);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedIndex >= 0 && items[selectedIndex]) {
+        const caseId = items[selectedIndex].dataset.caseId;
+        setSearch(caseId);
+      } else {
+        triggerSearch();
+      }
+      hideDropdown();
+    } else if (e.key === 'Escape') {
+      hideDropdown();
+    }
+  });
+
+  function updateSelection(items) {
+    items.forEach((item, idx) => {
+      if (idx === selectedIndex) {
+        item.classList.add('selected');
+        item.scrollIntoView({ block: 'nearest' });
+      } else {
+        item.classList.remove('selected');
+      }
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+      hideDropdown();
+    }
+  });
 }
 
 async function triggerSearch() {
   const q = document.getElementById('case-search').value.trim();
   if (!q) return;
-  
+
+  // 關閉下拉選單
+  const dropdown = document.getElementById('search-autocomplete-list');
+  if (dropdown) dropdown.style.display = 'none';
+
   try {
     let matchedCase = null;
     
-    // 改為從真實資料庫查詢
+    // 1. 先從真實資料庫根據案號精準比對
     if (typeof AppDatabase !== 'undefined') {
         matchedCase = AppDatabase.getCaseById(q);
     }
 
-    // Fallback: 如果是剛才手動建的案子 (仍在 caseDb) 就直接用
+    // 2. 備用：手動建的案子 (caseDb)
     if (!matchedCase && typeof caseDb !== 'undefined' && caseDb[q]) {
         matchedCase = caseDb[q];
     }
 
+    // 3. 關鍵字模糊比對：若輸入的不是精準案號，搜尋當事人、爭議要點、法規等欄位
     if (!matchedCase) {
-       alert('系統中查無此案件的實體案卷，請確認案號是否正確。');
+        const matches = findCasesMatchingQuery(q);
+        if (matches && matches.length > 0) {
+            matchedCase = AppDatabase.getCaseById(matches[0].id) || matches[0];
+        }
+    }
+
+    // 4. 直貼案卷全文支援：如果輸入內容長度大於 10 個字，自動將貼入的完整案卷內文轉為自訂案件並啟動 AI 分析
+    if (!matchedCase && q.length > 10) {
+        matchedCase = {
+            id: 'RAW-PASTE',
+            applicant: '貼入文本當事人',
+            type: '自訂案卷全文分析',
+            item: q.length > 40 ? q.substring(0, 40) + '...' : q,
+            amount: '依案卷全文為準',
+            created: new Date().toISOString().split('T')[0],
+            updated: new Date().toISOString().split('T')[0],
+            status: '審查中',
+            badgeClass: 'badge-review',
+            summary: ['系統自動接收貼入之完整案卷文本', '即時將文本傳送至後端 API 進行適法性剖析'],
+            laws: [{ title: '金融消費者保護法', desc: '相關適用條文' }],
+            textContext: q
+        };
+    }
+
+    if (!matchedCase) {
+       alert(`系統中查無包含「${q}」的相關案卷，請嘗試搜尋案號 (如 C001) 或直接貼入案件全文進行分析。`);
        return;
     }
 

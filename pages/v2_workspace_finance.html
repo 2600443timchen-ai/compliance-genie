@@ -148,7 +148,7 @@
   </header>
 
   <!-- Search Section -->
-  <section class="search-section" style="position: relative;">
+  <section class="search-section" style="position: relative; z-index: 100;">
     <!-- Centered Hero Pill Container (Aligned to search-wrapper top) -->
     <div class="hero-pill-container"
       style="position: absolute; left: 50%; top: var(--gap); transform: translateX(-50%); z-index: 10;">
@@ -180,7 +180,8 @@
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
-        <input type="text" id="case-search" class="search-input" placeholder="輸入案件編號，或用一句話描述您想找的爭議類型...">
+        <input type="text" id="case-search" class="search-input" placeholder="輸入案件編號 (如 C001) 或關鍵字 (如 投資型、醫療險、告知義務)..." autocomplete="off">
+        <div id="search-autocomplete-list" class="search-autocomplete-dropdown" style="display: none;"></div>
       </div>
       <button class="search-btn" onclick="triggerSearch()">
         <span>搜尋</span>
@@ -375,6 +376,11 @@
 
             <div class="input-wrapper">
               <div class="prompt-input-container">
+                <button class="attach-btn" onclick="document.getElementById('case-file-input').click()" title="夾帶上傳案卷 PDF / CSV / TXT">
+                  <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94a3 3 0 114.243 4.243L8.587 18.312a1.5 1.5 0 11-2.122-2.122l8.835-8.835"></path>
+                  </svg>
+                </button>
                 <textarea id="prompt-input" class="prompt-textarea" placeholder="在此輸入您的合規諮詢或追問問題... (按下 Enter 發送)"
                   onkeydown="checkSubmit(event)" oninput="autoGrow(this)"></textarea>
                 <button class="send-btn" onclick="handleSendText()" title="發送訊息">
