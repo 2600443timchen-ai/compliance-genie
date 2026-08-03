@@ -113,7 +113,8 @@ header {
 
 /* Interactive Search Section */
 .search-section {
-  z-index: 5;
+  position: relative;
+  z-index: 100;
   padding: var(--gap);
   border-bottom: none;
   display: flex;
@@ -123,6 +124,8 @@ header {
 }
 
 .search-wrapper {
+  position: relative;
+  z-index: 1000;
   display: flex;
   gap: 0.75rem;
   max-width: 800px;
@@ -131,6 +134,7 @@ header {
 
 .search-input-container {
   position: relative;
+  z-index: 1001;
   flex: 1;
 }
 
@@ -181,6 +185,100 @@ header {
   box-shadow: 0 6px 15px rgba(197, 160, 89, 0.35);
   filter: brightness(1.05);
   transform: translateY(-1px);
+}
+
+/* Autocomplete Dropdown Styles */
+.search-autocomplete-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px -5px rgba(15, 23, 42, 0.2), 0 4px 12px -2px rgba(15, 23, 42, 0.08);
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 9999;
+  backdrop-filter: blur(12px);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.search-autocomplete-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  border: 1px solid transparent;
+}
+
+.search-autocomplete-item:hover,
+.search-autocomplete-item.selected {
+  background: rgba(197, 160, 89, 0.08);
+  border-color: rgba(197, 160, 89, 0.3);
+}
+
+.search-item-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.search-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-item-id {
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #1e3a8a;
+  background: rgba(30, 58, 138, 0.08);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: 'Outfit', sans-serif;
+  flex-shrink: 0;
+}
+
+.search-item-applicant {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-item-snippet {
+  font-size: 0.78rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-item-badge {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.search-empty-item {
+  padding: 12px;
+  font-size: 0.85rem;
+  color: #94a3b8;
+  text-align: center;
 }
 
 .quick-tags {
@@ -1047,7 +1145,7 @@ header {
   position: relative;
   background: #FFFFFF;
   border-radius: 24px;
-  padding: 0.35rem 0.6rem 0.35rem 1.25rem;
+  padding: 0.35rem 0.6rem 0.35rem 0.6rem;
   display: flex;
   align-items: center;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03);
@@ -1063,7 +1161,7 @@ header {
   flex: 1;
   border: none;
   background: transparent;
-  padding: 0.6rem 0.5rem 0.6rem 0;
+  padding: 0.6rem 0.5rem;
   color: var(--text-main);
   font-size: 0.92rem;
   font-family: inherit;
@@ -1111,6 +1209,35 @@ header {
   width: 16px;
   height: 16px;
   margin-left: 1px;
+}
+
+.attach-btn {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 50%;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-right: 0.4rem;
+}
+
+.attach-btn:hover {
+  transform: scale(1.06);
+  background: rgba(197, 160, 89, 0.12);
+  color: var(--accent-gold-dark);
+  border-color: rgba(197, 160, 89, 0.3);
+}
+
+.attach-btn svg {
+  width: 17px;
+  height: 17px;
 }
 
 .export-btn {
