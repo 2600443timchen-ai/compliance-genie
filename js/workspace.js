@@ -978,94 +978,215 @@ async function handleSendText() {
   await sendQuestionToApi(text);
 }
 
-function extractAndCleanRiskJson(text) {
+const QUICK_PROMPT_COLORS = [
+  { bg: 'rgba(197, 160, 89, 0.15)', text: '#9a7b40', border: 'rgba(197, 160, 89, 0.3)' },
+  { bg: 'rgba(30, 58, 138, 0.1)', text: '#1e3a8a', border: 'rgba(30, 58, 138, 0.2)' },
+  { bg: 'rgba(16, 185, 129, 0.1)', text: '#059669', border: 'rgba(16, 185, 129, 0.2)' }
+];
+
+const QUICK_PROMPT_FALLBACKS = [
+  { label: '⚖️ 深入法源分析', prompt: '請根據目前案卷中可驗證的事實，逐項說明可能適用的法規、構成要件與尚待補充的證據；不確定之處請明確標示。' },
+  { label: '📝 草擬正式答辯', prompt: '請只根據目前案卷已知事實草擬正式答辯書，未知事實請以待補欄位標示，不得自行補造。' },
+  { label: '🔍 核對裁罰前例', prompt: '請列出本案需要查核的裁罰前例與檢索條件；無法確認真實來源時請明確說明，不得虛構案號或裁罰內容。' }
+];
+
+const QUICK_PROMPT_MAX_RELOADS = 2;
+let quickPromptRequestVersion = 0;
+
+function deriveQuickPromptLabel(prompt, index) {
+  const rules = [
+    [/答辯|函覆|回覆主管機關/, '📝 草擬正式答辯'],
+    [/裁罰|前例|案例|判決/, '🔍 核對裁罰前例'],
+    [/SOP|調查|證據|文件|清單/, '📋 展開調查計畫'],
+    [/法源|法規|條文|適法/, '⚖️ 深入法源分析'],
+    [/和解|協商|處置/, '🤝 規劃處置方案'],
+    [/風險|曝險|金額/, '📊 檢視風險估算']
+  ];
+  const match = rules.find(([pattern]) => pattern.test(prompt));
+  return match ? match[1] : `➡️ 下一步建議 ${index + 1}`;
+}
+
+function hasMeaningfulQuickPromptLabel(label) {
+  if (typeof label !== 'string') return false;
+  const words = label
+    .replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F\u200D]/gu, '')
+    .replace(/[\s\p{P}\p{S}]/gu, '');
+  return words.length >= 2;
+}
+
+function isSafeQuickPrompt(prompt) {
+  if (typeof prompt !== 'string') return false;
+  const value = prompt.trim();
+  if (value.length < 8 || value.length > 240) return false;
+  const unsafeOrRefusal = /忽略.{0,12}(先前|上述|系統|指令)|system\s*prompt|developer\s*message|越獄|jailbreak|無法.{0,8}(協助|回答)|不能.{0,8}(協助|回答)|I\s+(?:can(?:not|'t)|won't)/i;
+  return !unsafeOrRefusal.test(value);
+}
+
+function normalizeQuickPrompts(rawActions) {
+  const actions = [];
+  let modelContractValid = Array.isArray(rawActions) && rawActions.length === 3;
+
+  for (const [index, rawAction] of (Array.isArray(rawActions) ? rawActions : []).entries()) {
+    const action = typeof rawAction === 'string' ? { prompt: rawAction } : (rawAction || {});
+    const prompt = String(action.prompt ?? action.question ?? action.text ?? '').trim();
+    const rawLabel = String(action.label ?? action.title ?? action.name ?? '').trim();
+    const promptIsValid = isSafeQuickPrompt(prompt);
+    const labelIsValid = hasMeaningfulQuickPromptLabel(rawLabel);
+
+    if (!promptIsValid || actions.some(item => item.prompt === prompt)) {
+      modelContractValid = false;
+      continue;
+    }
+
+    if (!labelIsValid) modelContractValid = false;
+    actions.push({
+      label: labelIsValid ? rawLabel.slice(0, 28) : deriveQuickPromptLabel(prompt, index),
+      prompt
+    });
+  }
+
+  for (const fallback of QUICK_PROMPT_FALLBACKS) {
+    if (actions.length >= 3) break;
+    if (!actions.some(item => item.prompt === fallback.prompt)) actions.push({ ...fallback });
+  }
+
+  return { actions: actions.slice(0, 3), modelContractValid };
+}
+
+function renderQuickPrompts(rawActions, source = 'model') {
+  const result = normalizeQuickPrompts(rawActions);
+  const bar = document.getElementById('quick-prompts-bar');
+  if (!bar) return result;
+
+  bar.innerHTML = '';
+  bar.dataset.promptSource = result.modelContractValid ? source : `${source}-normalized`;
+  result.actions.forEach((action, index) => {
+    const button = document.createElement('button');
+    const color = QUICK_PROMPT_COLORS[index % QUICK_PROMPT_COLORS.length];
+    button.type = 'button';
+    button.className = 'prompt-chip action-chip';
+    button.textContent = action.label;
+    button.title = action.prompt;
+    button.onclick = () => useQuickPrompt(action.prompt);
+    button.style.background = color.bg;
+    button.style.color = color.text;
+    button.style.borderColor = color.border;
+    bar.appendChild(button);
+  });
+  return result;
+}
+
+function findBalancedJsonObjects(text) {
+  const results = [];
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') inString = true;
+    else if (char === '{') {
+      if (depth === 0) start = index;
+      depth += 1;
+    } else if (char === '}' && depth > 0) {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        results.push({ raw: text.slice(start, index + 1), start, end: index });
+        start = -1;
+      }
+    }
+  }
+  return results;
+}
+
+function extractSuggestedActions(text) {
+  const candidates = findBalancedJsonObjects(text || '');
+  for (const candidate of candidates.reverse()) {
+    try {
+      const parsed = JSON.parse(candidate.raw.replace(/,\s*([\]}])/g, '$1'));
+      const actions = parsed.suggested_actions ?? parsed.suggestedActions ?? parsed.actions;
+      if (Array.isArray(actions)) return actions;
+    } catch (_) { /* Try the next complete JSON object. */ }
+  }
+  return null;
+}
+
+function extractAndCleanRiskJson(text, onActions) {
     let cleanText = text;
     let dataExtracted = false;
 
-    // Helper: Find all balanced {...} objects in string
-    function findJsonObjects(str) {
-        let results = [];
-        let startIndex = str.indexOf('{');
-        while (startIndex !== -1) {
-            let braceCount = 0;
-            let endIndex = -1;
-            for (let i = startIndex; i < str.length; i++) {
-                if (str[i] === '{') braceCount++;
-                else if (str[i] === '}') braceCount--;
-                
-                if (braceCount === 0) {
-                    endIndex = i;
-                    break;
-                }
+    function applyRiskData(data, rawItem) {
+        const suggestedActions = data.suggested_actions ?? data.suggestedActions ?? data.actions;
+        if (data.settlement || data.fine || Array.isArray(suggestedActions)) {
+            // Update UI elements
+            const settlementElement = document.getElementById('risk-settlement');
+            const fineElement = document.getElementById('risk-fine');
+            if (data.settlement && settlementElement) settlementElement.textContent = data.settlement;
+            if (data.fine && fineElement) fineElement.textContent = data.fine;
+
+            const elSettlement = document.getElementById('risk-settlement');
+            const elFine = document.getElementById('risk-fine');
+            if (elSettlement) {
+                elSettlement.style.fontSize = '0.9rem';
+                elSettlement.style.color = '#f59e0b';
             }
-            if (endIndex !== -1) {
-                results.push({
-                    raw: str.substring(startIndex, endIndex + 1),
-                    start: startIndex,
-                    end: endIndex
-                });
-                startIndex = str.indexOf('{', endIndex + 1);
-            } else {
-                break; // Unmatched brace, incomplete stream
+            if (elFine) {
+                elFine.style.fontSize = '0.9rem';
+                elFine.style.color = '#ef4444';
             }
+
+            if(document.getElementById('risk-confidence-row')) {
+                if(document.getElementById('risk-rationale-row')) document.getElementById('risk-rationale-row').style.display = 'flex';
+                document.getElementById('risk-confidence-row').style.display = 'flex';
+                document.getElementById('risk-precedent-row').style.display = 'flex';
+            }
+
+            if (Array.isArray(suggestedActions)) {
+                const promptResult = renderQuickPrompts(suggestedActions);
+                if (typeof onActions === 'function') onActions(promptResult);
+            }
+
+            // Remove the exact matched JSON block from text
+            cleanText = cleanText.replace(rawItem, '');
+            dataExtracted = true;
+            return true;
         }
-        return results;
+        return false;
     }
 
-    let possibleJsons = findJsonObjects(cleanText);
+    let possibleJsons = findBalancedJsonObjects(cleanText);
     for (let item of possibleJsons) {
         try {
-            let data = JSON.parse(item.raw);
-            if (data.settlement || data.fine || data.suggested_actions) {
-                // Update UI elements
-                if (data.settlement) document.getElementById('risk-settlement').textContent = data.settlement;
-                if (data.fine) document.getElementById('risk-fine').textContent = data.fine;
+            let fixedRaw = item.raw.replace(/,\s*([\]}])/g, '$1');
+            let data = JSON.parse(fixedRaw);
+            applyRiskData(data, item.raw);
+        } catch(e) {
+            // Regex fallback for malformed JSON
+            try {
+                let fallbackData = {};
+                const settleMatch = item.raw.match(/"settlement"\s*:\s*"([^"]+)"/);
+                if (settleMatch) fallbackData.settlement = settleMatch[1];
                 
-                const elSettlement = document.getElementById('risk-settlement');
-                const elFine = document.getElementById('risk-fine');
-                if (elSettlement) {
-                    elSettlement.style.fontSize = '0.9rem';
-                    elSettlement.style.color = '#f59e0b';
-                }
-                if (elFine) {
-                    elFine.style.fontSize = '0.9rem';
-                    elFine.style.color = '#ef4444';
-                }
+                const fineMatch = item.raw.match(/"fine"\s*:\s*"([^"]+)"/);
+                if (fineMatch) fallbackData.fine = fineMatch[1];
                 
-                if(document.getElementById('risk-confidence-row')) {
-                    if(document.getElementById('risk-rationale-row')) document.getElementById('risk-rationale-row').style.display = 'flex';
-                    document.getElementById('risk-confidence-row').style.display = 'flex';
-                    document.getElementById('risk-precedent-row').style.display = 'flex';
+                const actionsMatch = item.raw.match(/"(?:suggested_actions|suggestedActions|actions)"\s*:\s*(\[[^\]]+\])/);
+                if (actionsMatch) {
+                    try {
+                        fallbackData.suggested_actions = JSON.parse(actionsMatch[1].replace(/,\s*([\]}])/g, '$1'));
+                    } catch(err) {}
                 }
 
-                if (data.suggested_actions && Array.isArray(data.suggested_actions)) {
-                    const bar = document.getElementById('quick-prompts-bar');
-                    if (bar) {
-                        bar.innerHTML = '';
-                        data.suggested_actions.forEach((action, idx) => {
-                            const btn = document.createElement('button');
-                            btn.className = 'prompt-chip action-chip';
-                            btn.onclick = () => useQuickPrompt(action.prompt);
-                            btn.textContent = action.label;
-                            const colors = [
-                               { bg: 'rgba(197, 160, 89, 0.15)', text: '#9a7b40', border: 'rgba(197, 160, 89, 0.3)' },
-                               { bg: 'rgba(30, 58, 138, 0.1)', text: '#1e3a8a', border: 'rgba(30, 58, 138, 0.2)' },
-                               { bg: 'rgba(16, 185, 129, 0.1)', text: '#059669', border: 'rgba(16, 185, 129, 0.2)' }
-                            ];
-                            const c = colors[idx % colors.length];
-                            btn.style.background = c.bg;
-                            btn.style.color = c.text;
-                            btn.style.borderColor = c.border;
-                            bar.appendChild(btn);
-                        });
-                    }
-                }
-
-                // Remove the exact matched JSON block from text
-                cleanText = cleanText.replace(item.raw, '');
-                dataExtracted = true;
-            }
-        } catch(e) {}
+                applyRiskData(fallbackData, item.raw);
+            } catch(e2) {}
+        }
     }
 
     // Hide incomplete streams (so they don't flicker on screen)
@@ -1076,7 +1197,7 @@ function extractAndCleanRiskJson(text) {
         isHiding = true;
     }
     const openBare = cleanText.match(/\{[\s\S]*?$/); 
-    if (openBare && (openBare[0].includes('"settlement"') || openBare[0].includes('"fine"') || openBare[0].includes('"suggested_actions"'))) {
+    if (openBare && (openBare[0].includes('"settlement"') || openBare[0].includes('"fine"') || /"(?:suggested_actions|suggestedActions|actions)"/.test(openBare[0]))) {
         cleanText = cleanText.substring(0, openBare.index);
         isHiding = true;
     }
@@ -1097,23 +1218,132 @@ function extractAndCleanRiskJson(text) {
 // 產生結構完整、多章節之專業合規分析報告 (當 API 字數不足時之品質防護備用報告)
 function generateRichFallbackReport(questionText, caseObj) {
   const caseId = caseObj ? caseObj.id : (activeCaseId || 'C001');
-  const applicant = caseObj ? caseObj.applicant : '當事人';
   const item = caseObj ? caseObj.item : '適合度評估與告知義務爭議';
-  const amount = caseObj ? caseObj.amount : 'NT$ 1,500,000';
 
-  return `### ⚖️ 金融消費爭議案件適法性評估報告 (案號：${caseId})
+  return `### ⚠️ 合規分析安全備援（案號：${caseId}）
 
-**一、 爭議核心與案情事實剖析**
-本案申訴人 **${applicant}** 反映購買金融商品（爭議金額：**${amount}**）時，理專涉嫌違反告知義務與適合度評估瑕疵。經比對案卷，理專於銷售過程中未完整說明保本與非保本風險，且 KYC 評估表填寫存在過失。
+AI 回覆經多次重載後仍未通過完整性或格式驗證。為避免產生未經證實的案情、法源、裁罰前例或金額，本區不顯示模型推測結論。
 
-**二、 適用法規與機構責任判定**
-1. **《金融消費者保護法》第 9 條（適合度原則）**：金融服務業與消費者訂立契約前，應充分瞭解消費者之風險承受度。本案理專適合度評估不夠落實，構成內控瑕疵。
-2. **《金融消費者保護法》第 10 條（說明義務）**：應充分說明商品風險與可能之最大損失。未提供完整說明書或未留存明確說明紀錄屬未盡告知義務。
+**目前可確認的輸入**
+- 案件識別：${caseId}
+- 爭議主題：${item}
+- 本回合問題：${questionText}
 
-**三、 財務曝險與處置建議 SOP**
-- **責任賠償比例**：本案機構需負擔約 10%~16% 之過失責任。
-- **建議處置方案**：建議優先採取「主動通融和解」簽署協議，預估和解金約 **NT$ 150,000 - 250,000**，可有效規避潛在 **NT$ 600,000 - 1,200,000** 之金管會監管裁罰。
-- **後續追蹤**：啟動內部調查，針對相關分行與理專進行合規導正訓練。`;
+**建議人工覆核順序**
+1. 核對原始契約、風險揭露、KYC／適合度文件及溝通紀錄。
+2. 從官方法規與主管機關資料庫核實法源及裁罰前例。
+3. 完成事實與來源核對後，再形成責任比例及處置建議。
+
+\`\`\`json
+{
+  "suggested_actions": [
+    { "label": "📝 草擬答辯書", "prompt": "請根據上述報告，幫我草擬一份給主管機關的答辯書草稿。" },
+    { "label": "🔍 查詢類似裁罰", "prompt": "請幫我查詢過去針對類似「未落實適合度評估」的實際裁罰案例。" },
+    { "label": "📋 展開調查計畫", "prompt": "請幫我列出針對本案理專與分行的內部調查 SOP。" }
+  ]
+}
+\`\`\`
+`;
+}
+
+function isUsableAssistantReply(cleanText) {
+  if (!cleanText || cleanText === '[LOADER]') return false;
+  const plainText = cleanText.replace(/[#*_>`\-\s]/g, '');
+  if (plainText.length < 50) return false;
+  const refusal = /(?:抱歉|對不起).{0,20}(?:無法|不能)|無法.{0,12}(?:協助|回答|遵循)|不能.{0,12}(?:協助|回答|遵循)|I\s+(?:can(?:not|'t)|won't)\s+(?:help|answer|comply)/i;
+  return !refusal.test(cleanText.slice(0, 240));
+}
+
+function renderVerifiedFallback(bubble, questionText, currentCase) {
+  const fallback = generateRichFallbackReport(questionText, currentCase);
+  const cleanFallback = extractAndCleanRiskJson(fallback);
+  bubble.innerHTML = formatMessageText(cleanFallback);
+  renderQuickPrompts(QUICK_PROMPT_FALLBACKS, 'fallback');
+}
+
+async function readAssistantStream(response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const payload = await response.json();
+    if (payload.status === 'error' || payload.error_code) {
+      throw new Error(payload.msg || payload.code || '提示詞重載 API 錯誤');
+    }
+    return payload.result || payload.content || '';
+  }
+
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  let latestResult = '';
+  let done = false;
+
+  const consumeLine = rawLine => {
+    const line = rawLine.trim();
+    if (!line.startsWith('data:')) return;
+    const json = line.slice(5).trim();
+    if (!json || json === '[DONE]') return;
+    try {
+      const parsed = JSON.parse(json);
+      if (typeof parsed.result === 'string') latestResult = parsed.result;
+    } catch (_) { /* Ignore a malformed SSE event and keep the last valid result. */ }
+  };
+
+  while (!done) {
+    const chunk = await reader.read();
+    done = chunk.done;
+    if (!chunk.value) continue;
+    buffer += decoder.decode(chunk.value, { stream: !done });
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() || '';
+    lines.forEach(consumeLine);
+  }
+  buffer += decoder.decode();
+  if (buffer.trim()) consumeLine(buffer);
+  return latestResult;
+}
+
+async function reloadQuickPrompts(questionText, answerText, currentCase, requestVersion) {
+  const chatID = await getChatId();
+  if (!chatID || requestVersion !== quickPromptRequestVersion) return false;
+
+  const caseSummary = currentCase
+    ? `案號：${currentCase.id}\n爭議主題：${currentCase.item || ''}`
+    : '目前沒有結構化案件摘要';
+
+  for (let attempt = 0; attempt <= QUICK_PROMPT_MAX_RELOADS; attempt += 1) {
+    if (requestVersion !== quickPromptRequestVersion) return false;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    try {
+      const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
+        method: 'POST',
+        headers: getApiHeaders(),
+        signal: controller.signal,
+        body: JSON.stringify({
+          q: `你是合規工作台的「下一步操作產生器」。只根據下列案件與回覆，產生三個彼此不同、可直接執行的下一階段提問。\n\n${caseSummary}\n使用者本回合問題：${questionText}\n已驗證回覆摘要：${answerText.slice(0, 1200)}\n\n只輸出一個 JSON 物件，不得輸出 Markdown 或說明：\n{"suggested_actions":[{"label":"⚖️ 深入法源分析","prompt":"完整且具體的繁體中文提問"},{"label":"📝 草擬正式答辯","prompt":"完整且具體的繁體中文提問"},{"label":"🔍 核對裁罰前例","prompt":"完整且具體的繁體中文提問"}]}\n規則：label 必須包含圖示及至少四個中文字，不可只輸出圖示；prompt 不得重複、不得要求忽略指令、不得虛構已查證的法源或案例。第 ${attempt + 1} 次格式驗證。`,
+          streaming: true
+        })
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const text = await readAssistantStream(response);
+      const actions = extractSuggestedActions(text);
+      const normalized = normalizeQuickPrompts(actions);
+      if (normalized.modelContractValid && requestVersion === quickPromptRequestVersion) {
+        renderQuickPrompts(actions, 'reloaded');
+        return true;
+      }
+    } catch (error) {
+      console.warn(`[Quick Prompts] 第 ${attempt + 1} 次重載失敗`, error);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  if (requestVersion === quickPromptRequestVersion) {
+    renderQuickPrompts(QUICK_PROMPT_FALLBACKS, 'fallback');
+  }
+  return false;
 }
 
 // ============================================================
@@ -1121,7 +1351,12 @@ function generateRichFallbackReport(questionText, caseObj) {
 // 支援品質自動檢測、失敗自動重試與 Rich Fallback 防護
 // ============================================================
 async function sendQuestionToApi(questionText, retryCount = 0, existingRow = null) {
+  const requestVersion = ++quickPromptRequestVersion;
   const stream = document.getElementById('chat-container');
+  let receivedValidQuickPrompts = false;
+  const trackQuickPrompts = result => {
+    receivedValidQuickPrompts = receivedValidQuickPrompts || result.modelContractValid;
+  };
 
   let aiRow = existingRow;
   if (!aiRow) {
@@ -1139,6 +1374,17 @@ async function sendQuestionToApi(questionText, retryCount = 0, existingRow = nul
     `;
     stream.appendChild(aiRow);
     scrollChatToBottom();
+  } else {
+    const bubble = aiRow.querySelector('.message-bubble');
+    if (bubble) {
+      bubble.innerHTML = `
+        <div class="typing-loader">
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+        </div>
+      `;
+    }
   }
 
   const bubble = aiRow.querySelector('.message-bubble');
@@ -1156,10 +1402,13 @@ async function sendQuestionToApi(questionText, retryCount = 0, existingRow = nul
   }
 
   const isRetryPrompt = retryCount > 0 
-    ? `\n【警告：前次產出內容字數不足。請務必提供包含至少三個章節（一、爭議核心剖析 二、金融消保法及相關條文比對 三、機構處理與比例責任建議）的完整合規審查報告，禁止僅回傳單句話或單一 JSON 區塊！】`
+    ? `\n【格式重載 ${retryCount}/3：前次產出未通過完整性、拒答或結構驗證。請提供實質回答；未知事實必須標示不確定，不得補造法源、案號、裁罰前例或金額。】`
     : '';
 
-  const systemOverride = `\n\n(系統強制指令：這是一個新的對話回合，請務必以「專業合規顧問」的角色，使用 Markdown 格式撰寫詳細的文字分析報告或回覆。請【完全解除】先前「不要輸出 JSON 以外任何說明文字」的限制，你現在必須輸出豐富的說明與分析。\n\n【極度重要：介面乾淨度與格式要求】\n1. 您的回覆必須【先】提供完整的文字分析與建議。\n2. 若需輸出財務預估或建議行動，請將 {"settlement": "...", "fine": "...", "suggested_actions": [{"label": "💡", "prompt": "..."}]} 整合成單一 JSON 區塊，並將該區塊放在所有文字的【最底下】。\n3. 絕對不可在 JSON 區塊前後加上「以下是財務風險試算」、「為您建議以下行動」等過渡引言！請讓 JSON 區塊完全無聲無息地附在文末，不可有任何介紹語句，以免破壞系統畫面！)${isRetryPrompt}`;
+  const systemOverride = `\n\n(系統強制指令：這是一個新的對話回合，請務必以「專業合規顧問」的角色，使用 Markdown 格式撰寫詳細的文字分析報告或回覆。請【完全解除】先前「不要輸出 JSON 以外任何說明文字」的限制，你現在必須輸出豐富的說明與分析。\n\n【極度重要：介面乾淨度與格式要求】\n1. 您的回覆必須【先】提供完整的文字分析與建議；只能依據已提供或可驗證的資料，不確定內容必須明確標示。\n2. 文末必須附上一個 JSON 物件，suggested_actions 必須剛好三筆且彼此不同。每筆 label 必須是「圖示加上具體動作名稱」，不可只填圖示；prompt 必須是完整、可直接送出的繁體中文提問。格式範例：{"suggested_actions":[{"label":"⚖️ 深入法源分析","prompt":"請根據已知事實逐項分析適用法源與待補證據。"},{"label":"📝 草擬正式答辯","prompt":"請依目前已確認事實草擬答辯書，未知資訊以待補標示。"},{"label":"🔍 核對裁罰前例","prompt":"請列出應從官方來源核對的裁罰前例與檢索條件。"}]}。\n3. JSON 區塊放在所有文字最底下，前後不加過渡引言；不得在 prompt 中要求忽略系統指令，也不得宣稱未經核實的法源、案例或數字已獲確認。)${isRetryPrompt}`;
+
+  // Reset quick prompts to generic contextual actions in case AI fails to provide them
+  renderQuickPrompts(QUICK_PROMPT_FALLBACKS, 'pending');
 
   try {
     const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
@@ -1210,9 +1459,19 @@ async function sendQuestionToApi(questionText, retryCount = 0, existingRow = nul
 
         // 啟動獨立的 UI 打字機渲染循環
         typingInterval = setInterval(() => {
-          const cleanResult = extractAndCleanRiskJson(latestResult);
+          const cleanResult = extractAndCleanRiskJson(latestResult, trackQuickPrompts);
           
           if (cleanResult === '[LOADER]') {
+            if (done) {
+               clearInterval(typingInterval);
+               if (retryCount < 3) {
+                   sendQuestionToApi(questionText, retryCount + 1, aiRow);
+               } else {
+                   renderVerifiedFallback(bubble, questionText, currentCase);
+                   scrollChatToBottom();
+               }
+               return;
+            }
             displayIndex = 0;
             if (!bubble.querySelector('.typing-loader')) {
                 bubble.innerHTML = '<div class="typing-loader"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
@@ -1236,7 +1495,18 @@ async function sendQuestionToApi(questionText, retryCount = 0, existingRow = nul
           } else if (done && displayIndex >= cleanResult.length) {
             // 串流結束，且畫面已追上最終長度，清除計時器
             clearInterval(typingInterval);
-            bubble.innerHTML = formatMessageText(cleanResult);
+            if (!isUsableAssistantReply(cleanResult)) {
+                if (retryCount < 3) {
+                    sendQuestionToApi(questionText, retryCount + 1, aiRow);
+                } else {
+                    renderVerifiedFallback(bubble, questionText, currentCase);
+                }
+            } else {
+                bubble.innerHTML = formatMessageText(cleanResult);
+                if (!receivedValidQuickPrompts) {
+                  void reloadQuickPrompts(questionText, cleanResult, currentCase, requestVersion);
+                }
+            }
             scrollChatToBottom();
           }
         }, 15);
@@ -1269,10 +1539,27 @@ async function sendQuestionToApi(questionText, retryCount = 0, existingRow = nul
     // 防呆：如果 API 異常或結束時完全沒有啟動定時器
     if (!typingInterval) {
       if (latestResult) {
-        const cleanResult = extractAndCleanRiskJson(latestResult);
-        bubble.innerHTML = formatMessageText(cleanResult);
+        const cleanResult = extractAndCleanRiskJson(latestResult, trackQuickPrompts);
+        if (!isUsableAssistantReply(cleanResult)) {
+            if (retryCount < 3) {
+                sendQuestionToApi(questionText, retryCount + 1, aiRow);
+                return;
+            } else {
+                renderVerifiedFallback(bubble, questionText, currentCase);
+            }
+        } else {
+            bubble.innerHTML = formatMessageText(cleanResult);
+            if (!receivedValidQuickPrompts) {
+              void reloadQuickPrompts(questionText, cleanResult, currentCase, requestVersion);
+            }
+        }
       } else {
-        bubble.innerHTML = '<span style="opacity:0.5;">（AI 未回傳有效回覆或拒絕回答此問題）</span>';
+        if (retryCount < 3) {
+            sendQuestionToApi(questionText, retryCount + 1, aiRow);
+            return;
+        } else {
+            renderVerifiedFallback(bubble, questionText, currentCase);
+        }
       }
       scrollChatToBottom();
     }
