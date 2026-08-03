@@ -92,5 +92,21 @@ const AppDatabase = {
       }
       return match;
     });
+  },
+
+  searchCases: function(query) {
+    if (!query) return [];
+    const q = query.toLowerCase().trim();
+    return this.cases.filter(c => {
+      const matchId = c.id && c.id.toLowerCase().includes(q);
+      const matchApplicant = c.applicant && c.applicant.toLowerCase().includes(q);
+      const matchType = c.type && c.type.toLowerCase().includes(q);
+      const matchItem = c.item && c.item.toLowerCase().includes(q);
+      const matchStatus = c.status && c.status.toLowerCase().includes(q);
+      const matchRegs = Array.isArray(c.regulations) && c.regulations.some(r => r.toLowerCase().includes(q));
+      const matchVios = Array.isArray(c.violations) && c.violations.some(v => v.toLowerCase().includes(q));
+      const matchEvi = Array.isArray(c.evidence) && c.evidence.some(e => e.toLowerCase().includes(q));
+      return matchId || matchApplicant || matchType || matchItem || matchStatus || matchRegs || matchVios || matchEvi;
+    });
   }
 };
