@@ -637,6 +637,7 @@ async function triggerSearch() {
     
     document.getElementById('risk-settlement').textContent = '等待後端演算中...';
     document.getElementById('risk-fine').textContent = '等待後端演算中...';
+    if(document.getElementById('risk-rationale-row')) document.getElementById('risk-rationale-row').style.display = 'none';
     if(document.getElementById('risk-confidence-row')) document.getElementById('risk-confidence-row').style.display = 'none';
     if(document.getElementById('risk-precedent-row')) document.getElementById('risk-precedent-row').style.display = 'none';
 
@@ -764,6 +765,18 @@ async function triggerSearch() {
           elFine.style.color = '#ef4444';
 
           if(document.getElementById('risk-confidence-row')) {
+            if(document.getElementById('risk-rationale-row')) {
+              document.getElementById('risk-rationale-row').style.display = 'flex';
+              const rationaleEl = document.getElementById('risk-rationale');
+              if (q.includes('002') || (matchedCase && matchedCase.item && matchedCase.item.includes('醫療'))) {
+                rationaleEl.textContent = '依據保險理賠評議實務，按 15%~25% 通融給付賠償比例試算；罰鍰依《保險法》裁罰標準推估。';
+              } else if (q.includes('003') || (matchedCase && matchedCase.item && matchedCase.item.includes('盜刷'))) {
+                rationaleEl.textContent = '依據信用卡業務管理辦法，按爭議款項全額或 50% 協商負擔；罰鍰依內控控管缺失標準推估。';
+              } else {
+                rationaleEl.textContent = '依據評議中心實務，按理專 10%~16% 告知瑕疵過失比例賠償；罰鍰依《金融消保法》第30-1條處分基準。';
+              }
+            }
+
             document.getElementById('risk-confidence-row').style.display = 'flex';
             document.getElementById('risk-precedent-row').style.display = 'flex';
 
@@ -784,6 +797,10 @@ async function triggerSearch() {
           document.getElementById('risk-settlement').textContent = `NT$ ${lowSettle.toLocaleString()} - ${highSettle.toLocaleString()}`;
           document.getElementById('risk-fine').textContent = `NT$ ${lowFine.toLocaleString()} - ${highFine.toLocaleString()}`;
           if(document.getElementById('risk-confidence-row')) {
+            if(document.getElementById('risk-rationale-row')) {
+              document.getElementById('risk-rationale-row').style.display = 'flex';
+              document.getElementById('risk-rationale').textContent = '依據評議中心實務，按理專 10%~16% 告知瑕疵過失比例賠償；罰鍰依《金融消保法》第30-1條處分基準。';
+            }
             document.getElementById('risk-confidence-row').style.display = 'flex';
             document.getElementById('risk-precedent-row').style.display = 'flex';
           }
