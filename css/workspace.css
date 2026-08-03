@@ -581,23 +581,39 @@ header {
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
+  width: 100%;
 }
 
 .info-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 0.85rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .info-label {
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .info-value {
   font-weight: 500;
   color: var(--text-main);
-  max-width: 60%;
+  max-width: 65%;
   text-align: right;
+  word-break: break-word;
+}
+
+/* Full width info rows (e.g. rationale block & precedent links) */
+.info-row[style*="column"] .info-value,
+.info-row.full-width .info-value,
+.info-value.full-width {
+  max-width: 100% !important;
+  width: 100% !important;
+  text-align: left !important;
+  box-sizing: border-box;
 }
 
 .case-action-btn {
