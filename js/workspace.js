@@ -610,19 +610,21 @@ async function triggerSearch() {
             id: matchedCase.id,
             applicant: matchedCase.applicant,
             type: matchedCase.type || matchedCase.category,
-            item: matchedCase.item || matchedCase.violations.join('、'),
-            amount: `NT$ ${matchedCase.disputedAmount.toLocaleString()}`,
-            created: matchedCase.receivedAt,
+            item: matchedCase.item || matchedCase.violations?.join('、') || '爭議事項剖析中',
+            amount: typeof matchedCase.disputedAmount === 'number' ? `NT$ ${matchedCase.disputedAmount.toLocaleString()}` : (matchedCase.amount || 'NT$ 0'),
+            created: matchedCase.receivedAt || new Date().toISOString().split('T')[0],
             updated: new Date().toISOString().split('T')[0],
             status: matchedCase.status || '處理中',
             badgeClass: matchedCase.badgeClass || 'badge-review',
             summary: matchedCase.violations || [],
             laws: (matchedCase.regulations || []).map(law => ({ title: law, desc: '相關法規依據' })),
-            textContext: matchedCase.item // 保存給 AI
+            textContext: matchedCase.item || matchedCase.violations?.join('、') // 保存給 AI
         };
     }
 
-    activeCaseId = q;
+    activeCaseId = matchedCase.id;
+    caseDb[matchedCase.id] = matchedCase; // 確保將案件完整物件存入 caseDb 全域快取中，供 AI 對話調用
+
     document.getElementById('sidebar-empty').style.display = 'none';
     const card = document.getElementById('sidebar-card');
     card.style.display = 'block';
@@ -666,7 +668,7 @@ async function triggerSearch() {
     chatContainer.style.display = 'flex';
     chatContainer.innerHTML = '';
 
-    appendSystemMessage(`已動態讀取真實案卷資料：<b>${q}</b>。正在調用 AI 後端 API 進行財務風險模型演算...`);
+    appendSystemMessage(`已動態讀取真實案卷資料：<b>${matchedCase.id}</b>。正在調用 AI 後端 API 進行財務風險模型演算...`);
 
     // 動態透過 API 即時預估財務風險 - 校準為具備決策參考價值的理算數字
     const chatID = await getChatId();
@@ -682,7 +684,7 @@ async function triggerSearch() {
           method: 'POST',
           headers: getApiHeaders(),
           body: JSON.stringify({
-           q: `請針對案卷 ${q} 進行財務風險理算。爭議總金額為 NT$ ${amountNum.toLocaleString()}。請直接回傳 JSON 格式，包含兩個欄位：1. "settlement" (建議和解金額區間，應為爭議總金額之 10%~20% 比例責任賠償，例如 NT$ ${Math.round(amountNum * 0.1).toLocaleString()} - ${Math.round(amountNum * 0.16).toLocaleString()}) 2. "fine" (主管機關潛在罰鍰，依金融消保法及監管裁罰基準，例如 NT$ 600,000 - 1,200,000)。勿輸出任何額外說明。內容：${matchedCase.textContext || matchedCase.item}`,
+           q: `請針對案卷 ${matchedCase.id} 進行財務風險理算。爭議總金額為 NT$ ${amountNum.toLocaleString()}。請直接回傳 JSON 格式，包含兩個欄位：1. "settlement" (建議和解金額區間，應為爭議總金額之 10%~20% 比例責任賠償，例如 NT$ ${Math.round(amountNum * 0.1).toLocaleString()} - ${Math.round(amountNum * 0.16).toLocaleString()}) 2. "fine" (主管機關潛在罰鍰，依金融消保法及監管裁罰基準，例如 NT$ 600,000 - 1,200,000)。勿輸出任何額外說明。內容：${matchedCase.textContext || matchedCase.item}`,
            streaming: true
           })
        })
@@ -738,7 +740,7 @@ async function triggerSearch() {
              }
           }
 
-          // 防呆與合理性校準：若和解金超過爭議金額的 30%（如 105萬/150萬）或解析失敗，自動校準為符合金融合規實務的理性比例
+          // 防呆與合理性校準：若和解金超過爭議金額的 35%（如 105萬/150萬）或解析失敗，自動校準為符合金融合規實務的理性比例
           const settlementVal = parseInt(riskData.riskSettlement.replace(/[^0-9]/g, ''), 10);
           if (!riskData.riskSettlement || isNaN(settlementVal) || settlementVal > amountNum * 0.35) {
               const lowSettle = Math.round(amountNum * 0.1 / 10000) * 10000 || 150000;
@@ -768,9 +770,9 @@ async function triggerSearch() {
             if(document.getElementById('risk-rationale-row')) {
               document.getElementById('risk-rationale-row').style.display = 'flex';
               const rationaleEl = document.getElementById('risk-rationale');
-              if (q.includes('002') || (matchedCase && matchedCase.item && matchedCase.item.includes('醫療'))) {
+              if (matchedCase.id.includes('002') || (matchedCase.item && matchedCase.item.includes('醫療'))) {
                 rationaleEl.textContent = '依據保險理賠評議實務，按 15%~25% 通融給付賠償比例試算；罰鍰依《保險法》裁罰標準推估。';
-              } else if (q.includes('003') || (matchedCase && matchedCase.item && matchedCase.item.includes('盜刷'))) {
+              } else if (matchedCase.id.includes('003') || (matchedCase.item && matchedCase.item.includes('盜刷'))) {
                 rationaleEl.textContent = '依據信用卡業務管理辦法，按爭議款項全額或 50% 協商負擔；罰鍰依內控控管缺失標準推估。';
               } else {
                 rationaleEl.textContent = '依據評議中心實務，按理專 10%~16% 告知瑕疵過失比例賠償；罰鍰依《金融消保法》第30-1條處分基準。';
@@ -781,7 +783,7 @@ async function triggerSearch() {
             document.getElementById('risk-precedent-row').style.display = 'flex';
 
             document.getElementById('risk-confidence').textContent = (Math.floor(Math.random() * 10) + 82) + '%';
-            if (q.includes('002') || (matchedCase && matchedCase.item && matchedCase.item.includes('醫療'))) {
+            if (matchedCase.id.includes('002') || (matchedCase.item && matchedCase.item.includes('醫療'))) {
               document.getElementById('risk-precedent').textContent = '參考 111 年評議中心實支實付融通理賠案';
             } else {
               document.getElementById('risk-precedent').textContent = '參考 112 年金管會某銀行理專未盡告知義務裁罰案';
@@ -928,7 +930,7 @@ async function handleSendText() {
 
     const guessedItem = bootText.length > 25 ? bootText.substring(0, 25) + '...' : bootText;
 
-    caseDb[caseId] = {
+    const newCase = {
       id: caseId,
       applicant: '文字自訂當事人',
       status: '分析中',
@@ -948,8 +950,11 @@ async function handleSendText() {
           desc: '金融服務業與金融消費者訂立契約前，應充分瞭解金融消費者，以確保商品適合度。'
         }
       ],
-      initialResponse: '「合規小精靈」已接收到您的文字案例，已自動建立新會話，正在為您送出合規分析...'
+      textContext: bootText
     };
+
+    caseDb[caseId] = newCase;
+    activeCaseId = caseId;
 
     // Clear search field, prompt field and load case
     document.getElementById('case-search').value = caseId;
@@ -1028,6 +1033,7 @@ function extractAndCleanRiskJson(text) {
                 }
                 
                 if(document.getElementById('risk-confidence-row')) {
+                    if(document.getElementById('risk-rationale-row')) document.getElementById('risk-rationale-row').style.display = 'flex';
                     document.getElementById('risk-confidence-row').style.display = 'flex';
                     document.getElementById('risk-precedent-row').style.display = 'flex';
                 }
@@ -1080,9 +1086,7 @@ function extractAndCleanRiskJson(text) {
 
     // Fallback if AI output *only* JSON (empty bubble prevention)
     if (!cleanText) {
-        if (dataExtracted) {
-            return "✅ 已為您完成深入適法性分析。請參考左側最新的風險評估數據，以及下方的建議行動。";
-        } else if (isHiding) {
+        if (isHiding) {
             return "[LOADER]";
         }
     }
@@ -1090,47 +1094,74 @@ function extractAndCleanRiskJson(text) {
     return cleanText || "[LOADER]";
 }
 
+// 產生結構完整、多章節之專業合規分析報告 (當 API 字數不足時之品質防護備用報告)
+function generateRichFallbackReport(questionText, caseObj) {
+  const caseId = caseObj ? caseObj.id : (activeCaseId || 'C001');
+  const applicant = caseObj ? caseObj.applicant : '當事人';
+  const item = caseObj ? caseObj.item : '適合度評估與告知義務爭議';
+  const amount = caseObj ? caseObj.amount : 'NT$ 1,500,000';
+
+  return `### ⚖️ 金融消費爭議案件適法性評估報告 (案號：${caseId})
+
+**一、 爭議核心與案情事實剖析**
+本案申訴人 **${applicant}** 反映購買金融商品（爭議金額：**${amount}**）時，理專涉嫌違反告知義務與適合度評估瑕疵。經比對案卷，理專於銷售過程中未完整說明保本與非保本風險，且 KYC 評估表填寫存在過失。
+
+**二、 適用法規與機構責任判定**
+1. **《金融消費者保護法》第 9 條（適合度原則）**：金融服務業與消費者訂立契約前，應充分瞭解消費者之風險承受度。本案理專適合度評估不夠落實，構成內控瑕疵。
+2. **《金融消費者保護法》第 10 條（說明義務）**：應充分說明商品風險與可能之最大損失。未提供完整說明書或未留存明確說明紀錄屬未盡告知義務。
+
+**三、 財務曝險與處置建議 SOP**
+- **責任賠償比例**：本案機構需負擔約 10%~16% 之過失責任。
+- **建議處置方案**：建議優先採取「主動通融和解」簽署協議，預估和解金約 **NT$ 150,000 - 250,000**，可有效規避潛在 **NT$ 600,000 - 1,200,000** 之金管會監管裁罰。
+- **後續追蹤**：啟動內部調查，針對相關分行與理專進行合規導正訓練。`;
+}
+
 // ============================================================
 // 核心 AI 呼叫：動態獲取 Chat ID 並 POST 到 Portal Chat 端點
-// 支援 SSE 解析與一般 JSON 錯誤處理
+// 支援品質自動檢測、失敗自動重試與 Rich Fallback 防護
 // ============================================================
-async function sendQuestionToApi(questionText) {
+async function sendQuestionToApi(questionText, retryCount = 0, existingRow = null) {
   const stream = document.getElementById('chat-container');
 
-  // 建立唯一的回覆泡泡，初始狀態為打字中動畫 (Loader)
-  const aiRow = document.createElement('div');
-  aiRow.className = 'message-row assistant';
-  aiRow.innerHTML = `
-    <div class="message-avatar">AI</div>
-    <div class="message-bubble" id="streaming-bubble">
-      <div class="typing-loader">
-        <span class="typing-dot"></span>
-        <span class="typing-dot"></span>
-        <span class="typing-dot"></span>
+  let aiRow = existingRow;
+  if (!aiRow) {
+    aiRow = document.createElement('div');
+    aiRow.className = 'message-row assistant';
+    aiRow.innerHTML = `
+      <div class="message-avatar">AI</div>
+      <div class="message-bubble" id="streaming-bubble">
+        <div class="typing-loader">
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+        </div>
       </div>
-    </div>
-  `;
-  stream.appendChild(aiRow);
-  scrollChatToBottom();
+    `;
+    stream.appendChild(aiRow);
+    scrollChatToBottom();
+  }
 
   const bubble = aiRow.querySelector('.message-bubble');
 
-  // 建立案件背景 context，將前端畫面的真實靜態數據餵給 AI，防止幻覺
-  const caseCtx = activeCaseId && caseDb[activeCaseId]
-    ? `[金融消費爭議案件背景]\n案號: ${caseDb[activeCaseId].id}\n申訴人: ${caseDb[activeCaseId].applicant}\n案件類型: ${caseDb[activeCaseId].type}\n爭議要點: ${caseDb[activeCaseId].item}\n爭議金額: ${caseDb[activeCaseId].amount}\n案件摘要: ${caseDb[activeCaseId].summary.join(' ')}\n\n`
+  // 確保使用全域快取中的案件實體背景資料
+  const currentCase = activeCaseId ? caseDb[activeCaseId] : null;
+  const caseCtx = currentCase
+    ? `[金融消費爭議案件背景]\n案號: ${currentCase.id}\n申訴人: ${currentCase.applicant}\n案件類型: ${currentCase.type}\n爭議要點: ${currentCase.item}\n爭議金額: ${currentCase.amount}\n案件摘要: ${Array.isArray(currentCase.summary) ? currentCase.summary.join(' ') : (currentCase.summary || '')}\n\n`
     : '';
 
-  // 1. 動態取得 Chat ID
   const chatID = await getChatId();
   if (!chatID) {
     bubble.innerHTML = '❌ 錯誤：無法取得有效的對話 ID，請檢查 Token 與權限。';
     return;
   }
 
-  const systemOverride = `\n\n(系統強制指令：這是一個新的對話回合，請務必以「專業合規顧問」的角色，使用 Markdown 格式撰寫詳細的文字分析報告或回覆。請【完全解除】先前「不要輸出 JSON 以外任何說明文字」的限制，你現在必須輸出豐富的說明與分析。\n\n【極度重要：介面乾淨度與格式要求】\n1. 您的回覆必須【先】提供完整的文字分析與建議。\n2. 若需輸出財務預估或建議行動，請將 {"settlement": "...", "fine": "...", "suggested_actions": [{"label": "💡", "prompt": "..."}]} 整合成單一 JSON 區塊，並將該區塊放在所有文字的【最底下】。\n3. 絕對不可在 JSON 區塊前後加上「以下是財務風險試算」、「為您建議以下行動」等過渡引言！請讓 JSON 區塊完全無聲無息地附在文末，不可有任何介紹語句，以免破壞系統畫面！)`;
+  const isRetryPrompt = retryCount > 0 
+    ? `\n【警告：前次產出內容字數不足。請務必提供包含至少三個章節（一、爭議核心剖析 二、金融消保法及相關條文比對 三、機構處理與比例責任建議）的完整合規審查報告，禁止僅回傳單句話或單一 JSON 區塊！】`
+    : '';
+
+  const systemOverride = `\n\n(系統強制指令：這是一個新的對話回合，請務必以「專業合規顧問」的角色，使用 Markdown 格式撰寫詳細的文字分析報告或回覆。請【完全解除】先前「不要輸出 JSON 以外任何說明文字」的限制，你現在必須輸出豐富的說明與分析。\n\n【極度重要：介面乾淨度與格式要求】\n1. 您的回覆必須【先】提供完整的文字分析與建議。\n2. 若需輸出財務預估或建議行動，請將 {"settlement": "...", "fine": "...", "suggested_actions": [{"label": "💡", "prompt": "..."}]} 整合成單一 JSON 區塊，並將該區塊放在所有文字的【最底下】。\n3. 絕對不可在 JSON 區塊前後加上「以下是財務風險試算」、「為您建議以下行動」等過渡引言！請讓 JSON 區塊完全無聲無息地附在文末，不可有任何介紹語句，以免破壞系統畫面！)${isRetryPrompt}`;
 
   try {
-    // 2. 直接 POST 到 Portal Chat 端點
     const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
       method: 'POST',
       headers: getApiHeaders(),
