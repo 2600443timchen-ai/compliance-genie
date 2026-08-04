@@ -2165,3 +2165,39 @@ button {
     align-items: stretch;
   }
 }
+
+/* Contextual drill-down: hover previews, click pins, Genie explains. */
+html, body { overflow-x: hidden; }
+
+.insight-target { cursor: help; transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+.insight-target:hover,
+.insight-target:focus-visible { border-color: rgba(197,160,89,.64) !important; box-shadow: 0 0 0 3px rgba(197,160,89,.1), 0 10px 24px rgba(62,47,22,.1); outline: none; }
+.kpi-card.insight-target { position:relative; }
+.kpi-card.insight-target::after { content:'＋'; position:absolute; top:.5rem; right:.55rem; display:grid; place-items:center; width:16px; height:16px; border:1px solid rgba(197,160,89,.38); border-radius:50%; color:#a77b31; font-size:.63rem; font-weight:800; }
+.external-benchmark { margin-top:.1rem; padding-top:.42rem; border-top:1px dashed rgba(197,160,89,.35); }
+.external-benchmark dt { color:#c9aa62 !important; }
+.external-benchmark dd { color:#f5e5b7 !important; }
+.case-row.insight-target:hover { transform:none; background:#fff9e9; }
+
+.insight-popover { position:fixed; z-index:480; display:none; width:370px; overflow:hidden; border:1px solid rgba(197,160,89,.42); border-radius:13px; background:#fff; box-shadow:0 22px 60px rgba(9,23,45,.24); color:#23344b; }
+.insight-popover.open { display:block; animation:insight-in .18s ease-out; }
+.insight-popover { transition:left .28s cubic-bezier(.4,0,.2,1),top .18s ease; }
+.insight-popover.pinned { box-shadow:0 0 0 3px rgba(197,160,89,.15),0 22px 60px rgba(9,23,45,.28); }
+@keyframes insight-in { from { opacity:0; transform:translateY(5px) scale(.985); } to { opacity:1; transform:none; } }
+.insight-popover header { display:flex; align-items:flex-start; justify-content:space-between; padding:.75rem .85rem; background:linear-gradient(130deg,#0e213e,#183b69); }
+.insight-popover header span,.insight-popover header strong { display:block; }
+.insight-popover header span { color:#dec477; font-size:.52rem; font-weight:800; letter-spacing:.09em; }
+.insight-popover header strong { margin-top:.16rem; color:#fff; font-size:.84rem; }
+.insight-popover header button { width:25px; height:25px; border:0; border-radius:50%; background:rgba(255,255,255,.08); color:rgba(255,255,255,.7); font-size:1rem; }
+.insight-metric { display:flex; align-items:center; justify-content:space-between; padding:.62rem .85rem; border-bottom:1px solid #edf0f4; background:#fbf8ef; }
+.insight-metric span { color:#7d8795; font-size:.56rem; }
+.insight-metric strong { color:#8a6528; font:700 .86rem 'Outfit',sans-serif; text-align:right; }
+.insight-section { padding:.62rem .85rem 0; }
+.insight-section > span { color:#8a6528; font-size:.53rem; font-weight:800; letter-spacing:.04em; }
+.insight-section p { margin:.15rem 0 0; color:#526074; font-size:.63rem; line-height:1.55; }
+.insight-section.evidence p { padding:.42rem .5rem; border-left:3px solid #c5a059; border-radius:0 5px 5px 0; background:#f7f4ed; color:#4a5768; }
+.insight-section.action p { color:#18375e; font-weight:650; }
+.insight-popover footer { display:flex; align-items:center; justify-content:space-between; gap:.6rem; margin-top:.7rem; padding:.62rem .85rem; border-top:1px solid #edf0f4; background:#fbfcfd; }
+.insight-popover footer small { color:#9aa3af; font-size:.5rem; }
+.insight-popover footer button { padding:.42rem .58rem; border:1px solid rgba(197,160,89,.48); border-radius:6px; background:#fff8e5; color:#7f5d22; font-size:.59rem; font-weight:800; }
+.insight-popover footer button:hover { background:#f4e4b7; }
