@@ -107,6 +107,18 @@ function positionInsightPopover(target) {
   popover.style.top = `${Math.max(12, top)}px`;
 }
 
+let insightEnterTimer = null;
+
+function handlePeriodChange(val) {
+  toast(`已切換觀察期間至「${val}」`);
+  const card = document.querySelector('.risk-index-card');
+  if (card) {
+    card.style.transform = 'scale(1.02)';
+    card.style.transition = 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)';
+    setTimeout(() => { card.style.transform = 'none'; }, 260);
+  }
+}
+
 function showInsight(target, pin = false) {
   const insight = INSIGHT_DEFINITIONS[target.dataset.insight];
   if (!insight) return;
@@ -138,19 +150,39 @@ function hideInsight(force = false) {
 
 function initInsightInteractions() {
   document.querySelectorAll('.insight-target').forEach(target => {
-    target.addEventListener('mouseenter', () => { if (!insightPinned) showInsight(target); });
-    target.addEventListener('mouseleave', () => { insightHideTimer = setTimeout(() => hideInsight(), 180); });
-    target.addEventListener('focus', () => { if (!insightPinned) showInsight(target); });
+    target.addEventListener('mouseenter', () => {
+      if (!insightPinned) {
+        clearTimeout(insightEnterTimer);
+        insightEnterTimer = setTimeout(() => showInsight(target), 220);
+      }
+    });
+    target.addEventListener('mouseleave', () => {
+      clearTimeout(insightEnterTimer);
+      insightHideTimer = setTimeout(() => hideInsight(), 220);
+    });
+    target.addEventListener('focus', () => {
+      if (!insightPinned) {
+        clearTimeout(insightEnterTimer);
+        showInsight(target);
+      }
+    });
     target.addEventListener('click', event => {
       if (event.target.closest('button, a, select, textarea')) return;
       if (event.target.closest('.insight-target') !== target) return;
+      clearTimeout(insightEnterTimer);
       insightPinned = false;
       showInsight(target, true);
     });
   });
   const popover = $('insight-popover');
-  popover.addEventListener('mouseenter', () => clearTimeout(insightHideTimer));
-  popover.addEventListener('mouseleave', () => { insightHideTimer = setTimeout(() => hideInsight(), 180); });
+  popover.addEventListener('mouseenter', () => {
+    clearTimeout(insightEnterTimer);
+    clearTimeout(insightHideTimer);
+  });
+  popover.addEventListener('mouseleave', () => {
+    clearTimeout(insightEnterTimer);
+    insightHideTimer = setTimeout(() => hideInsight(), 220);
+  });
   $('insight-close').addEventListener('click', () => hideInsight(true));
   $('insight-ask').addEventListener('click', () => {
     if (!activeInsight) return;

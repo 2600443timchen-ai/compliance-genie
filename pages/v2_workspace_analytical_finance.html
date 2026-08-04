@@ -92,9 +92,11 @@
       </div>
       <div class="hero-side">
         <div class="head-controls">
-          <label class="period-control">觀察期間
-            <select onchange="toast('已切換觀察期間（展示）')">
-              <option>近 14 天</option><option>本月</option><option>本季</option>
+          <label class="period-control" title="切換觀察時間區間">觀察期間
+            <select onchange="handlePeriodChange(this.value)">
+              <option value="近 14 天">近 14 天</option>
+              <option value="本月">本月</option>
+              <option value="本季">本季</option>
             </select>
           </label>
           <div class="data-status ready">

@@ -1505,13 +1505,38 @@ body {
 
 .executive-hero .period-control,
 .executive-hero .data-status {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.075);
-  color: rgba(255, 255, 255, 0.64);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.09);
+  color: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(10px);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.22s ease;
 }
 
-.executive-hero .period-control select,
+.executive-hero .period-control:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.executive-hero .period-control select {
+  color: #fff;
+  background: transparent;
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
+  padding-right: 0.2rem;
+}
+
+.executive-hero .period-control select option {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  font-weight: 600;
+  padding: 6px 12px;
+}
+
 .executive-hero .data-status strong {
   color: #fff;
 }
@@ -2188,7 +2213,8 @@ html, body { overflow-x: hidden; }
 .insight-popover header span,.insight-popover header strong { display:block; }
 .insight-popover header span { color:#dec477; font-size:.52rem; font-weight:800; letter-spacing:.09em; }
 .insight-popover header strong { margin-top:.16rem; color:#fff; font-size:.84rem; }
-.insight-popover header button { width:25px; height:25px; border:0; border-radius:50%; background:rgba(255,255,255,.08); color:rgba(255,255,255,.7); font-size:1rem; }
+.insight-popover header button { width:25px; height:25px; border:0; border-radius:50%; background:rgba(255,255,255,.08); color:rgba(255,255,255,.7); font-size:1rem; cursor:pointer; transition:all .18s ease; }
+.insight-popover header button:hover { background:rgba(255,255,255,.24); color:#fff; }
 .insight-metric { display:flex; align-items:center; justify-content:space-between; padding:.62rem .85rem; border-bottom:1px solid #edf0f4; background:#fbf8ef; }
 .insight-metric span { color:#7d8795; font-size:.56rem; }
 .insight-metric strong { color:#8a6528; font:700 .86rem 'Outfit',sans-serif; text-align:right; }
