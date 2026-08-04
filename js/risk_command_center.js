@@ -109,14 +109,118 @@ function positionInsightPopover(target) {
 
 let insightEnterTimer = null;
 
+const PERIOD_DATA = {
+  '近 14 天': {
+    riskIndex: '78',
+    riskStatus: '風險升溫',
+    riskNote: '投資型保單訊號推升 12 點',
+    avoidance: 'NT$ 520–760 萬',
+    avoidanceNote: '若 2 項治理措施如期完成 · 信心 76%',
+    events: '12',
+    eventsTrend: '↑ 較前 14 天 +35%',
+    exposure: 'NT$ 680–1,020 萬',
+    exposureNote: '27 件高風險案件估算',
+    sla: '27 件',
+    slaNote: '3 件需於 48 小時內介入',
+    reg: '4 項',
+    regNote: '最近期限：14 天',
+    briefLead: '近 14 天相關爭議由 31 件上升至 42 件，其中 65 歲以上客戶占 82%；主要集中於適合度評估與風險說明紀錄。',
+    chartTrend: '+35%',
+    bars: ['38%', '48%', '62%', '84%']
+  },
+  '本月': {
+    riskIndex: '84',
+    riskStatus: '警戒狀態',
+    riskNote: '客訴與評議案件持續累積',
+    avoidance: 'NT$ 1,280–1,850 萬',
+    avoidanceNote: '若 4 項治理措施如期完成 · 信心 82%',
+    events: '28',
+    eventsTrend: '↑ 較上月 +48%',
+    exposure: 'NT$ 1,450–2,100 萬',
+    exposureNote: '42 件高風險案件估算',
+    sla: '38 件',
+    slaNote: '7 件需於 48 小時內介入',
+    reg: '6 項',
+    regNote: '最近期限：8 天',
+    briefLead: '本月相關爭議累計達 78 件，其中高齡客戶投訴佔比持續攀升至 86%；已觸發全面合規稽核。',
+    chartTrend: '+48%',
+    bars: ['25%', '42%', '70%', '95%']
+  },
+  '本季': {
+    riskIndex: '71',
+    riskStatus: '中度受控',
+    riskNote: '季末避險措施開始發揮成效',
+    avoidance: 'NT$ 3,400–4,200 萬',
+    avoidanceNote: '累積完成 8 項治理措施 · 信心 88%',
+    events: '65',
+    eventsTrend: '↓ 較上季 -15%',
+    exposure: 'NT$ 2,200–3,100 萬',
+    exposureNote: '89 件歷史案件回溯',
+    sla: '19 件',
+    slaNote: '1 件需於 48 小時內介入',
+    reg: '2 項',
+    regNote: '最近期限：28 天',
+    briefLead: '本季累計處理 185 件爭議案件，高齡投資型保單案件在實施冷卻期後顯著下降 15%。',
+    chartTrend: '-15%',
+    bars: ['85%', '65%', '45%', '30%']
+  }
+};
+
 function handlePeriodChange(val) {
   toast(`已切換觀察期間至「${val}」`);
-  const card = document.querySelector('.risk-index-card');
-  if (card) {
-    card.style.transform = 'scale(1.02)';
-    card.style.transition = 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)';
-    setTimeout(() => { card.style.transform = 'none'; }, 260);
+  const data = PERIOD_DATA[val] || PERIOD_DATA['近 14 天'];
+  
+  const riskScore = document.querySelector('.risk-ring strong');
+  if (riskScore) riskScore.textContent = data.riskIndex;
+  const riskStatus = document.querySelector('.risk-index-copy strong');
+  if (riskStatus) riskStatus.textContent = data.riskStatus;
+  const riskNote = document.querySelector('.risk-index-copy p');
+  if (riskNote) riskNote.textContent = data.riskNote;
+  
+  const avoidVal = document.querySelector('.avoidance-value strong');
+  if (avoidVal) avoidVal.textContent = data.avoidance;
+  const avoidNote = document.querySelector('.avoidance-value small');
+  if (avoidNote) avoidNote.textContent = data.avoidanceNote;
+  
+  const kpiAlert = document.querySelector('.kpi-alert strong');
+  if (kpiAlert) kpiAlert.textContent = data.events;
+  const kpiAlertTrend = document.querySelector('.kpi-alert small');
+  if (kpiAlertTrend) kpiAlertTrend.textContent = data.eventsTrend;
+  
+  const kpiExposure = document.querySelector('.kpi-exposure strong');
+  if (kpiExposure) kpiExposure.textContent = data.exposure;
+  const kpiExposureNote = document.querySelector('.kpi-exposure small');
+  if (kpiExposureNote) kpiExposureNote.textContent = data.exposureNote;
+  
+  const kpiSla = document.querySelector('.kpi-sla strong');
+  if (kpiSla) kpiSla.textContent = data.sla;
+  const kpiSlaNote = document.querySelector('.kpi-sla small');
+  if (kpiSlaNote) kpiSlaNote.textContent = data.slaNote;
+  
+  const kpiReg = document.querySelector('.kpi-reg strong');
+  if (kpiReg) kpiReg.textContent = data.reg;
+  const kpiRegNote = document.querySelector('.kpi-reg small');
+  if (kpiRegNote) kpiRegNote.textContent = data.regNote;
+  
+  const briefLead = document.querySelector('.brief-lead');
+  if (briefLead) briefLead.textContent = data.briefLead;
+  
+  const chartTrend = document.querySelector('.chart-labels strong');
+  if (chartTrend) chartTrend.textContent = data.chartTrend;
+  
+  const bars = document.querySelectorAll('.bar-set i');
+  if (bars && bars.length === 4) {
+    bars.forEach((bar, index) => {
+      bar.style.height = data.bars[index];
+    });
   }
+  
+  const animatedElements = document.querySelectorAll('.risk-index-card, .executive-kpis, .priority-brief');
+  animatedElements.forEach(el => {
+    el.style.opacity = '0.6';
+    el.style.transition = 'opacity 0.18s ease';
+    setTimeout(() => { el.style.opacity = '1'; }, 180);
+  });
 }
 
 function showInsight(target, pin = false) {
