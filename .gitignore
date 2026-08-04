@@ -21,6 +21,8 @@ Desktop.ini
 
 # Node / Package Manager Files
 node_modules/
+__pycache__/
+*.py[cod]
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -32,3 +34,8 @@ build/
 out/
 tmp/
 temp/
+
+# Local backend secrets
+.env
+.env.*
+!.env.example

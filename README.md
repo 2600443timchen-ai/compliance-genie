@@ -47,6 +47,28 @@ SEI競賽/
 
 ## 🛠️ 開發與本地執行
 
+### 分析儀表板：同時啟動前端與正式 API 後端
+
+Windows 可直接雙擊 `start_analytical_demo.cmd`，或在 PowerShell 的專案根目錄執行：
+
+```powershell
+.\start_analytical_demo.ps1
+```
+
+這個指令會同時啟動靜態前端與小型同源後端，並開啟：
+`http://127.0.0.1:8765/pages/v2_workspace_analytical_finance.html`
+
+後端使用 `https://cloud.geminidata.com/api/v1`，只代理儀表板允許的 11 個 Source ID。優先讀取後端環境變數 `GEMINI_API_TOKEN`；目前展示環境若未設定，啟動腳本會暫時沿用 `js/config.js` 的既有展示憑證。正式部署請只用環境變數，避免讓 JWT 出現在前端檔案。
+
+不需要自動開啟瀏覽器時，也可以直接執行：
+
+```powershell
+$env:GEMINI_API_TOKEN = '<token>'
+python .\analytics_server.py --host 127.0.0.1 --port 8765
+```
+
+健康檢查端點：`GET /api/health`。
+
 1. **安裝 Live Server**：
    在 VS Code 中安裝 **Live Server** 擴充功能，或在專案根目錄執行：
    ```bash
