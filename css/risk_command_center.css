@@ -1296,7 +1296,30 @@ body.ai-drawer-open .ai-drawer {
   justify-self: start;
   border: 1px solid #e6eaf0;
   background: #fff;
+  white-space: normal;
 }
+
+.ai-message.assistant p {
+  margin: 0 0 0.5rem;
+}
+
+.ai-message.assistant p:last-child {
+  margin: 0;
+}
+
+.ai-message.assistant ul, .ai-message.assistant ol {
+  margin: 0.25rem 0 0.5rem;
+  padding-left: 1.5rem;
+}
+
+.ai-message.assistant li {
+  margin-bottom: 0.25rem;
+}
+
+.ai-message.assistant strong {
+  color: var(--blue);
+}
+
 
 .ai-message.typing {
   color: var(--muted);
