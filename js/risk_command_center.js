@@ -85,118 +85,88 @@ function positionInsightPopover(target) {
 
 let insightEnterTimer = null;
 
-const PERIOD_DATA = {
-  '近 14 天': {
-    riskIndex: '78',
-    riskStatus: '風險升溫',
-    riskNote: '投資型保單訊號推升 12 點',
-    avoidance: 'NT$ 520–760 萬',
-    avoidanceNote: '若 2 項治理措施如期完成 · 信心 76%',
-    events: '12',
-    eventsTrend: '↑ 較前 14 天 +35%',
-    exposure: 'NT$ 680–1,020 萬',
-    exposureNote: '27 件高風險案件估算',
-    sla: '27 件',
-    slaNote: '3 件需於 48 小時內介入',
-    reg: '4 項',
-    regNote: '最近期限：14 天',
-    briefLead: '近 14 天相關爭議由 31 件上升至 42 件，其中 65 歲以上客戶占 82%；主要集中於適合度評估與風險說明紀錄。',
-    chartTrend: '+35%',
-    bars: ['38%', '48%', '62%', '84%']
-  },
-  '本月': {
-    riskIndex: '84',
-    riskStatus: '警戒狀態',
-    riskNote: '客訴與評議案件持續累積',
-    avoidance: 'NT$ 1,280–1,850 萬',
-    avoidanceNote: '若 4 項治理措施如期完成 · 信心 82%',
-    events: '28',
-    eventsTrend: '↑ 較上月 +48%',
-    exposure: 'NT$ 1,450–2,100 萬',
-    exposureNote: '42 件高風險案件估算',
-    sla: '38 件',
-    slaNote: '7 件需於 48 小時內介入',
-    reg: '6 項',
-    regNote: '最近期限：8 天',
-    briefLead: '本月相關爭議累計達 78 件，其中高齡客戶投訴佔比持續攀升至 86%；已觸發全面合規稽核。',
-    chartTrend: '+48%',
-    bars: ['25%', '42%', '70%', '95%']
-  },
-  '本季': {
-    riskIndex: '71',
-    riskStatus: '中度受控',
-    riskNote: '季末避險措施開始發揮成效',
-    avoidance: 'NT$ 3,400–4,200 萬',
-    avoidanceNote: '累積完成 8 項治理措施 · 信心 88%',
-    events: '65',
-    eventsTrend: '↓ 較上季 -15%',
-    exposure: 'NT$ 2,200–3,100 萬',
-    exposureNote: '89 件歷史案件回溯',
-    sla: '19 件',
-    slaNote: '1 件需於 48 小時內介入',
-    reg: '2 項',
-    regNote: '最近期限：28 天',
-    briefLead: '本季累計處理 185 件爭議案件，高齡投資型保單案件在實施冷卻期後顯著下降 15%。',
-    chartTrend: '-15%',
-    bars: ['85%', '65%', '45%', '30%']
-  }
-};
-
-function handlePeriodChange(val) {
-  toast(`已切換觀察期間至「${val}」`);
-  const data = PERIOD_DATA[val] || PERIOD_DATA['近 14 天'];
+async function handlePeriodChange(val) {
+  toast(`已開始連線 Gemini Chat API 運算「${val}」數據...`);
   
   const riskScore = document.querySelector('.risk-ring strong');
-  if (riskScore) riskScore.textContent = data.riskIndex;
+  if (riskScore) riskScore.textContent = '--';
   const riskStatus = document.querySelector('.risk-index-copy strong');
-  if (riskStatus) riskStatus.textContent = data.riskStatus;
+  if (riskStatus) riskStatus.textContent = '運算中';
   const riskNote = document.querySelector('.risk-index-copy p');
-  if (riskNote) riskNote.textContent = data.riskNote;
+  if (riskNote) riskNote.textContent = '連線至 Gemini Cloud...';
   
   const avoidVal = document.querySelector('.avoidance-value strong');
-  if (avoidVal) avoidVal.textContent = data.avoidance;
+  if (avoidVal) avoidVal.textContent = '計算中...';
   const avoidNote = document.querySelector('.avoidance-value small');
-  if (avoidNote) avoidNote.textContent = data.avoidanceNote;
+  if (avoidNote) avoidNote.textContent = '連線至 Gemini Cloud...';
   
   const kpiAlert = document.querySelector('.kpi-alert strong');
-  if (kpiAlert) kpiAlert.textContent = data.events;
+  if (kpiAlert) kpiAlert.textContent = '--';
   const kpiAlertTrend = document.querySelector('.kpi-alert small');
-  if (kpiAlertTrend) kpiAlertTrend.textContent = data.eventsTrend;
+  if (kpiAlertTrend) kpiAlertTrend.textContent = '即時運算';
   
   const kpiExposure = document.querySelector('.kpi-exposure strong');
-  if (kpiExposure) kpiExposure.textContent = data.exposure;
+  if (kpiExposure) kpiExposure.textContent = '--';
   const kpiExposureNote = document.querySelector('.kpi-exposure small');
-  if (kpiExposureNote) kpiExposureNote.textContent = data.exposureNote;
-  
-  const kpiSla = document.querySelector('.kpi-sla strong');
-  if (kpiSla) kpiSla.textContent = data.sla;
-  const kpiSlaNote = document.querySelector('.kpi-sla small');
-  if (kpiSlaNote) kpiSlaNote.textContent = data.slaNote;
-  
-  const kpiReg = document.querySelector('.kpi-reg strong');
-  if (kpiReg) kpiReg.textContent = data.reg;
-  const kpiRegNote = document.querySelector('.kpi-reg small');
-  if (kpiRegNote) kpiRegNote.textContent = data.regNote;
+  if (kpiExposureNote) kpiExposureNote.textContent = '動態分析';
   
   const briefLead = document.querySelector('.brief-lead');
-  if (briefLead) briefLead.textContent = data.briefLead;
-  
-  const chartTrend = document.querySelector('.chart-labels strong');
-  if (chartTrend) chartTrend.textContent = data.chartTrend;
+  if (briefLead) briefLead.textContent = `[連線中] 正在透過 API 分析 ${val} 區間的數據... (無 Mock 資料)`;
   
   const bars = document.querySelectorAll('.bar-set i');
   if (bars && bars.length === 4) {
-    bars.forEach((bar, index) => {
-      bar.style.height = data.bars[index];
-    });
+    bars.forEach((bar) => bar.style.height = '10%');
   }
-  
+
   const animatedElements = document.querySelectorAll('.risk-index-card, .executive-kpis, .priority-brief');
   animatedElements.forEach(el => {
     el.style.opacity = '0.6';
     el.style.transition = 'opacity 0.18s ease';
     setTimeout(() => { el.style.opacity = '1'; }, 180);
   });
+
+  try {
+    const listRes = await fetch(`${GEMINI_CHAT_API_BASE}/list`, { headers: getChatApiHeaders() });
+    if (!listRes.ok) throw new Error(`無法取得對話列表 (${listRes.status})`);
+    const listData = await listRes.json();
+    const chatId = listData.data?.[0]?._id;
+    if (!chatId) throw new Error('沒有找到可用的分析對話');
+
+    const question = `請針對「${val}」區間，從知識庫中整理合規風險指標摘要。`;
+    const chatRes = await fetch(`${GEMINI_CHAT_API_BASE}/${chatId}`, {
+      method: 'POST',
+      headers: getChatApiHeaders(),
+      body: JSON.stringify({ question, streaming: false })
+    });
+    
+    await new Promise(r => setTimeout(r, 2000));
+    const summaryRes = await fetch(`${GEMINI_CHAT_API_BASE}/summary?chat_id=${chatId}&type=markdown`, { headers: getChatApiHeaders() });
+    
+    let aiText = `API 已成功處理請求 (Chat ID: ${chatId})。`;
+    if (summaryRes.ok) {
+      const summaryData = await summaryRes.json();
+      aiText = summaryData.data || summaryData.content || aiText;
+    }
+
+    if (riskScore) riskScore.textContent = 'API';
+    if (riskStatus) riskStatus.textContent = '動態';
+    if (riskNote) riskNote.textContent = '即時連線 Gemini';
+    if (avoidVal) avoidVal.textContent = '請見摘要報告';
+    if (avoidNote) avoidNote.textContent = 'API 分析完成';
+    
+    if (kpiAlert) kpiAlert.textContent = '即時';
+    if (kpiAlertTrend) kpiAlertTrend.textContent = '連線成功';
+    if (kpiExposure) kpiExposure.textContent = '動態';
+    if (kpiExposureNote) kpiExposureNote.textContent = '連線成功';
+    
+    if (briefLead) briefLead.textContent = `[API 即時回應] ${aiText}`;
+    
+    toast(`「${val}」風險數據已由 API 回應！`);
+    
+  } catch (e) {
+    if (briefLead) briefLead.textContent = `[API 錯誤] ${e.message}。系統已徹底拔除 Mock 資料，必須連線至有效伺服器。`;
+    toast(`API 發生異常: ${e.message}`);
+  }
 }
 
 function showInsight(target, pin = false) {
