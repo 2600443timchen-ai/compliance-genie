@@ -1,10 +1,7 @@
 # Gemini Enterprise API 規範文件
 
-> [!WARNING]
-> **環境與端點使用限制警告**
-> 1. 目前由於測試環境 API 格式統一採用 `https://cloud.geminidata.com/api/portal/api10` 用作端點，**請勿使用 `/api/v1/portal/projects/{id}/` 等正式版 API 來進行開發**，否則無法在純前端架構下成功部署。
-> 2. **請勿更動原本可運行的 API 架構**：請勿將原程式碼中的對話功能端點（如 `/assistant/chat/list` 與 `/assistant/chat/{id}`）更換為規格書中的 `/chat/list` 與 `/chat/{id}`。原本的 API 架構即為可運行的架構，請維持原樣勿更動。
-> 3. **API 調用優先級與參照守則**：後續所有 API 調用規格均以 `/assistant/chat/list` 與 `/assistant/chat/{id}` 為參照；開發與維護時**務必優先參考最上方的本守則與限制，再參閱後續的 API 規格書內容**。
+> **開發提示**
+> 本文件後續內容以現有可運作的後端架構為準，對話流程仍請優先參考 `/assistant/chat/list` 與 `/assistant/chat/{id}`；下方規格可作為介面與資料結構的參考。
 
 
 

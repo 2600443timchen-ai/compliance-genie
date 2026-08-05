@@ -47,7 +47,7 @@ SEI競賽/
 
 ## 🛠️ 開發與本地執行
 
-### 分析儀表板：同時啟動前端與正式 API 後端
+### 工作台與分析儀表板：同時啟動前端與正式 API 後端
 
 Windows 可直接雙擊 `start_analytical_demo.cmd`，或在 PowerShell 的專案根目錄執行：
 
@@ -58,7 +58,13 @@ Windows 可直接雙擊 `start_analytical_demo.cmd`，或在 PowerShell 的專�
 這個指令會同時啟動靜態前端與小型同源後端，並開啟：
 `http://127.0.0.1:8765/pages/v2_workspace_analytical_finance.html`
 
-後端使用 `https://cloud.geminidata.com/api/v1`，只代理儀表板允許的 11 個 Source ID。優先讀取後端環境變數 `GEMINI_API_TOKEN`；目前展示環境若未設定，啟動腳本會暫時沿用 `js/config.js` 的既有展示憑證。正式部署請只用環境變數，避免讓 JWT 出現在前端檔案。
+單一案件／法規查詢工作台位於：
+`http://127.0.0.1:8765/pages/v2_workspace_finance.html`
+
+金融工作台的 AI 對話會經由同源 `/api/chat` 後端代理，固定寫入後台可辨識的
+`Compliance Genie 工作台` 聊天室。請勿用純靜態 Live Server 開啟此頁，否則無法使用後端代理。
+
+後端使用 `https://cloud.geminidata.com/api/v1`，代理儀表板允許的 11 個 Source ID，並透過 Portal API 處理金融工作台對話。優先讀取後端環境變數 `GEMINI_API_TOKEN`；目前展示環境若未設定，啟動腳本會暫時沿用 `js/config.js` 的既有展示憑證。正式部署請只用環境變數，避免讓 JWT 出現在前端檔案。
 
 不需要自動開啟瀏覽器時，也可以直接執行：
 
