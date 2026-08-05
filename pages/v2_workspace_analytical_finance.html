@@ -87,7 +87,7 @@
         <h1>在風險成為裁罰前，<span>先看見它。</span></h1>
         <p>串聯客訴、KYC、通聯與法規資料，把分散訊號轉成主管可立即核准的治理行動。</p>
         <div class="hero-proof">
-          <span><b>4</b> 大資料域</span><i></i><span><b>446</b> 件案件持續監測</span><i></i><span><b>&lt; 24h</b> 從異常到介入</span>
+          <span><b>--</b> 大資料域</span><i></i><span><b>--</b> 件案件持續監測</span><i></i><span><b>--</b> 從異常到介入</span>
         </div>
       </div>
       <div class="hero-side">
@@ -101,7 +101,7 @@
           </label>
           <div class="data-status ready">
             <span class="status-dot"></span>
-            <div><strong>資料已更新</strong><small>2026/08/03 16:30</small></div>
+            <strong>API 連線中</strong><small>即時查詢</small></div>
           </div>
         </div>
         <div class="risk-index-card">
@@ -150,7 +150,7 @@
       <div class="ai-welcome" id="ai-welcome">
         <div class="assistant-mark">G</div>
         <h2><span>王副總，您好</span>想從哪個風險開始？</h2>
-        <p>我可以根據目前儀表板的示範資料，協助摘要、比較與整理決策問題。</p>
+        <p>我可以根據 Gemini Cloud API 回傳的即時資料，協助摘要、比較與整理決策問題。</p>
         <div class="ai-suggestions">
           <button onclick="askDashboardAssistant(this.textContent)">為什麼投資型保單風險上升？</button>
           <button onclick="askDashboardAssistant(this.textContent)">今天最需要核准哪一項行動？</button>
@@ -159,7 +159,7 @@
       </div>
       <div class="ai-conversation" id="ai-conversation" aria-live="polite"></div>
     </div>
-    <div class="ai-safety-note"><strong>示範模式</strong> 回覆僅使用此頁資料，數字與建議仍須人工覆核。</div>
+    <div class="ai-safety-note"><strong>即時模式</strong> 回覆來自 Gemini Cloud API 即時查詢，數字與建議仍須人工覆核。</div>
     <footer class="ai-composer"><textarea id="ai-question" rows="1" placeholder="詢問這份儀表板…" onkeydown="handleAssistantKeydown(event)"></textarea><button onclick="submitAssistantQuestion()" aria-label="送出問題">↑</button><small>Genie 可能產生錯誤，重要決策請查核原始資料。</small></footer>
   </aside>
 
