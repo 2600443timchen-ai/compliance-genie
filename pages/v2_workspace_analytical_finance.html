@@ -189,7 +189,36 @@
         <div class="drilldown-status"><span class="status-dot"></span>深鑽已套用：下方同步高亮「財富管理處」、關聯案件與治理行動</div>
       </section>
 
+      <div class="operational-grid" id="case-drilldown">
+        <section class="vision-card operational-panel">
+          <div class="panel-header"><div><span class="section-kicker">OPERATIONS</span><h2>各部門處理達標率（SLA）</h2></div><button class="text-button" onclick="toast('開啟部門明細（展示）')">檢視詳情</button></div>
+          <div class="panel-content">
+            <div class="progress-row signal-linked-department insight-target" data-signal="signal-01" data-insight="wealth-sla" tabindex="0"><div class="linked-indicator">SIGNAL 01 主要影響部門</div><div class="progress-info"><strong>財富管理處 <em>142 件</em></strong><span>12 天 · 95%</span></div><div class="progress-track"><div class="progress-fill" style="width:95%;background:var(--green)"></div></div></div>
+            <div class="progress-row insight-target" data-insight="consumer-sla" tabindex="0"><div class="progress-info"><strong>消費金融處 <em>89 件</em></strong><span>18 天 · 82%</span></div><div class="progress-track"><div class="progress-fill" style="width:82%;background:var(--amber)"></div></div></div>
+            <div class="progress-row insight-target" data-insight="card-sla" tabindex="0"><div class="progress-info"><strong>信用卡部 <em>215 件</em></strong><span class="trend-danger">28 天 · 64%（需介入）</span></div><div class="progress-track"><div class="progress-fill" style="width:64%;background:var(--red)"></div></div></div>
+          </div>
+        </section>
 
+        <section class="vision-card operational-panel related-cases-panel">
+          <div class="panel-header"><div><span class="section-kicker">EXCEPTIONS</span><h2>高風險超時案件 <em id="case-filter-label">全體</em></h2></div><button class="text-button" onclick="toast('已準備匯出名單（展示）')">匯出名單</button></div>
+          <div class="panel-content"><table class="overdue-table"><thead><tr><th>案件</th><th>爭議類型</th><th>期限</th><th>曝險區間</th><th>負責人</th></tr></thead><tbody>
+            <tr class="case-row signal-related primary-case insight-target" data-signal="signal-01" data-insight="case-c001" tabindex="0"><td class="case-id">C001-INV</td><td>適合度評估</td><td><span class="tag tag-danger">剩 2 天</span></td><td class="fine-amt">90–150 萬</td><td>林專員</td></tr>
+            <tr class="case-row signal-related insight-target" data-signal="signal-01" data-insight="case-c077" tabindex="0"><td class="case-id">C077-INV</td><td>高齡客群揭露</td><td><span class="tag tag-danger">剩 4 天</span></td><td class="fine-amt">40–70 萬</td><td>李襄理</td></tr>
+            <tr class="case-row signal-related insight-target" data-signal="signal-01" data-insight="case-c104" tabindex="0"><td class="case-id">C104-INV</td><td>KYC 文件缺漏</td><td><span class="tag tag-warning">剩 7 天</span></td><td class="fine-amt">25–45 萬</td><td>王專員</td></tr>
+            <tr class="case-row unrelated-case insight-target" data-insight="case-c142" tabindex="0"><td class="case-id">C142-CRD</td><td>不當催收</td><td><span class="tag tag-danger">剩 3 天</span></td><td class="fine-amt">45–75 萬</td><td>陳副理</td></tr>
+            <tr class="case-row unrelated-case insight-target" data-insight="case-c088" tabindex="0"><td class="case-id">C088-INS</td><td>風險說明</td><td><span class="tag tag-warning">剩 5 天</span></td><td class="fine-amt">20–40 萬</td><td>張專員</td></tr>
+          </tbody></table></div>
+        </section>
+      </div>
+
+      <section class="vision-card regulatory-panel">
+        <div class="panel-header"><div><span class="section-kicker">REGULATORY READINESS</span><h2>法規缺口與改善進度</h2></div><button class="text-button" onclick="toast('開啟法規追蹤台帳（展示）')">查看台帳</button></div>
+        <div class="reg-grid">
+          <article><span class="action-meta urgent">倒數 14 天</span><div><h3>公平待客作業調整</h3><p>高齡客戶錄音覆核流程 · 完成度 68%</p></div><strong>負責：消費者保護組</strong></article>
+          <article><span class="action-meta completed">已生效</span><div><h3>實質受益人審查機制</h3><p>系統規則與抽查報表 · 完成度 92%</p></div><strong>負責：洗防辦公室</strong></article>
+        </div>
+        <p class="source-note regulatory-source">示範法規資訊｜正式使用時應連結主管機關原文、生效日期與內部法遵意見。</p>
+      </section>
     </div>
   </main>
 
@@ -213,8 +242,8 @@
       </div>
       <div class="ai-conversation" id="ai-conversation" aria-live="polite"></div>
     </div>
-    <div class="ai-safety-note"><strong>AI 知識庫</strong> 回覆來自雲端知識庫，數字與建議仍須人工覆核。離線時自動退回儀表板示範回覆。</div>
-    <footer class="ai-composer"><textarea id="ai-question" rows="1" placeholder="詢問合規相關問題…" onkeydown="handleAssistantKeydown(event)"></textarea><button onclick="submitAssistantQuestion()" aria-label="送出問題">↑</button><small>Genie 可能產生錯誤，重要決策請查核原始資料。</small></footer>
+    <div class="ai-safety-note"><strong>示範模式</strong> 回覆僅使用此頁資料，數字與建議仍須人工覆核。</div>
+    <footer class="ai-composer"><textarea id="ai-question" rows="1" placeholder="詢問這份儀表板…" onkeydown="handleAssistantKeydown(event)"></textarea><button onclick="submitAssistantQuestion()" aria-label="送出問題">↑</button><small>Genie 可能產生錯誤，重要決策請查核原始資料。</small></footer>
   </aside>
 
   <aside class="insight-popover" id="insight-popover" aria-hidden="true">
@@ -228,10 +257,9 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="../js/config.js?v=2"></script>
-  <script src="../js/analytical_source_data.js?v=2"></script>
+
   <script src="../js/document_preview.js?v=4"></script>
-  <script src="../js/risk_command_center.js?v=15"></script>
+  <script src="../js/risk_command_center.js?v=12"></script>
 </body>
 </html>

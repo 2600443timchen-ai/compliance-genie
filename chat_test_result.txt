@@ -1,0 +1,8 @@
+SESSION CHAT ID: 6a72e5c79397fde0735f128b
+STATUS: 200
+CONTENT TYPE: text/event-stream; charset=utf-8
+BODY:
+data: {"result": "金融消費者保護法第七條重點如下：\n\n- 金融服務業與金融消費者訂立提供金融商品或服務之契約時，必須遵守**公平合理、平等互惠及誠信原則**。\n- 若契約條款顯失公平，該部分條款無效；條款有疑義時，應作有利於金融消費者之解釋。\n- 金融服務業在提供商品或服務時，應盡善良管理人之注意義務；若涉及信託、委託等性質，還需負忠實義務。\n\n簡言之，第七條要求金融機構在與消費者簽訂契約及提供服務時，必須保障消費者權益，落實公平、合理及誠信原則。這也是後續評議案件判斷是否違規的重要依據。", "chatId": "6a72e5c79397fde0735f128b", "chatTitle": "Compliance Genie 工作台", "userMessageId": "6a732b7e9397fde0735f1bc4", "messageId": "6a732b7e9397fde0735f1bc6"}
+
+data: [DONE]
+
