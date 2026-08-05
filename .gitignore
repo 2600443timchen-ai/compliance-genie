@@ -39,3 +39,7 @@ temp/
 .env
 .env.*
 !.env.example
+
+# Test outputs
+chat_test_result.txt
+source_*.json

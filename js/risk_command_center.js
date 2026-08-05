@@ -134,8 +134,11 @@ async function handlePeriodChange(val) {
       body: JSON.stringify({ question, streaming: false })
     });
     
-    // 呼叫獨立的 API 模組進行輪詢
-    const summaryData = await fetchSummaryWithPolling(chatId);
+    // 呼叫獨立的 API 模組進行輪詢 (使用依賴注入)
+    const summaryData = await fetchSummaryWithPolling(chatId, {
+      baseUrl: GEMINI_CHAT_API_BASE,
+      headers: getChatApiHeaders()
+    });
     let aiText = summaryData.data || summaryData.content || `API 已成功處理請求 (Chat ID: ${chatId})。`;
 
     if (riskScore) riskScore.textContent = 'API';

@@ -10,24 +10,32 @@ async function runTests() {
 
   // 測試案例 1: 成功取得資料 (第一次失敗，第二次成功)
   let callCount = 0;
-  global.mockFetch = async (url) => {
+  const mockFetchSuccess = async (url) => {
     callCount++;
     if (callCount === 1) return { ok: true, json: async () => ({ status: 'processing' }) };
     return { ok: true, json: async () => ({ data: 'Success Markdown' }) };
   };
   
-  const result = await fetchSummaryWithPolling('chat_123');
+  const result = await fetchSummaryWithPolling('chat_123', {
+    baseUrl: 'https://api.mock',
+    fetchFn: mockFetchSuccess
+  });
   assert.strictEqual(result.data, 'Success Markdown', 'Should return data when successful');
   assert.strictEqual(callCount, 2, 'Should have polled twice');
   console.log("✓ Test 1 Passed: Polling success");
 
   // 測試案例 2: 處理逾時拋出例外
-  global.mockFetch = async (url) => {
+  const mockFetchTimeout = async (url) => {
     return { ok: true, json: async () => ({ status: 'processing' }) };
   };
 
   try {
-    await fetchSummaryWithPolling('chat_123', 3, 5);
+    await fetchSummaryWithPolling('chat_123', {
+      maxRetries: 3,
+      pollInterval: 5,
+      baseUrl: 'https://api.mock',
+      fetchFn: mockFetchTimeout
+    });
     assert.fail("Should have thrown timeout error");
   } catch (e) {
     assert.strictEqual(e.message, "API 處理逾時，無法取得完整摘要", 'Should throw correct timeout message');
@@ -35,12 +43,17 @@ async function runTests() {
   console.log("✓ Test 2 Passed: Timeout handling");
 
   // 測試案例 3: 網路異常 (Fetch 拋出錯誤)
-  global.mockFetch = async (url) => {
+  const mockFetchNetworkErr = async (url) => {
     throw new Error("Network Disconnected");
   };
 
   try {
-    await fetchSummaryWithPolling('chat_123', 3, 5);
+    await fetchSummaryWithPolling('chat_123', {
+      maxRetries: 3,
+      pollInterval: 5,
+      baseUrl: 'https://api.mock',
+      fetchFn: mockFetchNetworkErr
+    });
     assert.fail("Should have thrown network error");
   } catch (e) {
     assert.strictEqual(e.message, "Network Disconnected", 'Should propagate network error');
