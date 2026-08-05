@@ -110,12 +110,12 @@
               <circle class="ring-track" cx="60" cy="60" r="48"></circle>
               <circle class="ring-value" cx="60" cy="60" r="48"></circle>
             </svg>
-            <div><strong>78</strong><span>/ 100</span></div>
+            <div><strong>--</strong><span>/ 100</span></div>
           </div>
-          <div class="risk-index-copy"><span>ENTERPRISE RISK INDEX</span><strong>風險升溫</strong><p>投資型保單訊號推升 12 點</p></div>
+          <div class="risk-index-copy"><span>ENTERPRISE RISK INDEX</span><strong>載入中...</strong><p>正在連線 Gemini API...</p></div>
           <div class="avoidance-value">
-            <span>本月可避免曝險（估算）<small>若 2 項治理措施如期完成 · 信心 76%</small></span>
-            <strong>NT$ 520–760 萬</strong>
+            <span>本月可避免曝險（估算）<small>API 連線中...</small></span>
+            <strong>--</strong>
           </div>
         </div>
       </div>
@@ -123,71 +123,17 @@
 
     <div class="vision-dashboard">
       <section class="executive-kpis" aria-label="關鍵風險指標">
-        <article class="kpi-card kpi-alert insight-target" data-insight="events" tabindex="0"><span>新增高風險事件</span><strong>12</strong><small class="trend-up">↑ 較前 14 天 +35%</small></article>
-        <article class="kpi-card kpi-exposure insight-target" data-insight="exposure" tabindex="0"><span>潛在財務曝險</span><strong>NT$ 680–1,020 萬</strong><small>27 件高風險案件估算</small></article>
-        <article class="kpi-card kpi-sla insight-target" data-insight="sla" tabindex="0"><span>SLA 逾期風險</span><strong>27 件</strong><small class="trend-danger">3 件需於 48 小時內介入</small></article>
-        <article class="kpi-card kpi-reg insight-target" data-insight="regulatory" tabindex="0"><span>待完成法規缺口</span><strong>4 項</strong><small>最近期限：14 天</small></article>
+        <article class="kpi-card kpi-alert insight-target" data-insight="events" tabindex="0"><span>新增高風險事件</span><strong>--</strong><small class="trend-up">載入中</small></article>
+        <article class="kpi-card kpi-exposure insight-target" data-insight="exposure" tabindex="0"><span>潛在財務曝險</span><strong>--</strong><small>載入中</small></article>
+        <article class="kpi-card kpi-sla insight-target" data-insight="sla" tabindex="0"><span>SLA 逾期風險</span><strong>--</strong><small class="trend-danger">載入中</small></article>
+        <article class="kpi-card kpi-reg insight-target" data-insight="regulatory" tabindex="0"><span>待完成法規缺口</span><strong>--</strong><small>載入中</small></article>
       </section>
 
-      <div class="decision-grid">
-        <section class="vision-card priority-brief signature-card insight-target" data-insight="signal" tabindex="0">
-          <div class="panel-header priority-header">
-            <div><span class="priority-label">本週重大異常</span><h2>投資型保單 × 高齡客群</h2></div>
-            <span class="review-badge">SIGNAL 01 · 待覆核</span>
-          </div>
-          <p class="brief-lead">近 14 天相關爭議由 31 件上升至 42 件，其中 65 歲以上客戶占 82%；主要集中於適合度評估與風險說明紀錄。</p>
-          <div class="brief-body">
-            <div class="trend-chart" aria-label="近四週案件趨勢示意圖">
-              <div class="chart-labels"><span>近四週案件趨勢</span><strong>+35%</strong></div>
-              <div class="bar-set"><i style="height:38%"></i><i style="height:48%"></i><i style="height:62%"></i><i class="active" style="height:84%"></i></div>
-              <div class="week-labels"><span>W1</span><span>W2</span><span>W3</span><span>W4</span></div>
-            </div>
-            <dl class="evidence-list">
-              <div><dt>影響範圍</dt><dd>8 個分行 · 17 位理專</dd></div>
-              <div><dt>主要缺口</dt><dd>KYC 與錄音紀錄不完整</dd></div>
-              <div><dt>判定信心</dt><dd>82% · 中高</dd></div>
-              <div class="external-benchmark insight-target" data-insight="benchmark" tabindex="0"><dt>外部產業基準</dt><dd><span id="benchmark-value">載入 Gemini Data…</span></dd></div>
-            </dl>
-          </div>
-          <div class="source-note"><span>資料來源：客訴系統、KYC 稽核結果、通聯紀錄索引</span><div class="source-actions"><button class="text-button" onclick="toast('開啟指標計算與來源說明（展示）')">計算依據</button><button class="signal-drilldown-btn" id="signal-drilldown-btn" onclick="toggleSignalDrilldown(true)" aria-expanded="false">深鑽 3 筆關聯案件 →</button></div></div>
-        </section>
-
-        <section class="vision-card action-panel">
-          <div class="panel-header"><div><span class="section-kicker">DECISION REQUIRED</span><h2>待核准治理行動</h2></div><span class="tag tag-warning">2 項</span></div>
-          <div class="approval-list">
-            <article class="signal-linked-action" data-signal="signal-01">
-              <div class="approval-top"><span class="action-meta urgent">48 小時內</span><span>風險降低：高</span></div>
-              <h3>提高高齡客戶銷售覆核層級</h3>
-              <p>指定 8 個異常分行於銷售前增加主管覆核，不直接全面停售。</p>
-              <div class="owner-row"><span>提案：財富管理處</span><button onclick="openDocumentPreview('approval-action')">預覽並核准</button></div>
-            </article>
-            <article class="signal-linked-action" data-signal="signal-01">
-              <div class="approval-top"><span class="action-meta">7 天內</span><span>影響案件：42 件</span></div>
-              <h3>啟動通聯與 KYC 專案抽查</h3>
-              <p>先抽查高風險理專近三個月紀錄，確認問題是否具系統性。</p>
-              <div class="owner-row"><span>負責：法遵稽核組</span><button onclick="openDocumentPreview('investigation-order')">預覽並建立</button></div>
-            </article>
-          </div>
-          <p class="approval-disclaimer">系統建議僅供決策輔助，所有治理措施須經權責主管覆核。</p>
-        </section>
+      <div class="api-dynamic-content" id="api-dynamic-content" style="padding: 2rem; background: var(--bg-card); border-radius: 12px; margin-top: 1.5rem; border: 1px solid var(--border-color); color: var(--text-primary); font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap;">
+         正在透過 Gemini API 即時分析數據，請稍候...
       </div>
 
-      <section class="signal-drilldown" id="signal-drilldown" aria-hidden="true" inert>
-        <div class="drilldown-head">
-          <div><span class="drilldown-breadcrumb">全局總覽 / SIGNAL 01 / 關聯案件</span><h2>投資型保單 × 高齡客群｜風險證據鏈</h2><p>已同步鎖定受影響部門、3 筆高風險案件與 2 項治理行動。</p></div>
-          <button onclick="toggleSignalDrilldown(false)" aria-label="清除 SIGNAL 01 深鑽">清除深鑽 ×</button>
-        </div>
-        <div class="drilldown-flow" aria-label="風險訊號到治理行動流程">
-          <article><span>01 · 異常訊號</span><strong>客訴 +35%</strong><small>31 → 42 件</small></article>
-          <i aria-hidden="true">→</i>
-          <article><span>02 · 影響範圍</span><strong>8 個分行</strong><small>17 位理專</small></article>
-          <i aria-hidden="true">→</i>
-          <article><span>03 · 關聯案件</span><strong>3 件高風險</strong><small>曝險 155–265 萬</small></article>
-          <i aria-hidden="true">→</i>
-          <article><span>04 · 治理行動</span><strong>2 項待核准</strong><small>可避免曝險 520–760 萬</small></article>
-        </div>
-        <div class="drilldown-status"><span class="status-dot"></span>深鑽已套用：下方同步高亮「財富管理處」、關聯案件與治理行動</div>
-      </section>
+
 
 
     </div>

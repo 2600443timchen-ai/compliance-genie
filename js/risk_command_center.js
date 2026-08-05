@@ -110,15 +110,10 @@ async function handlePeriodChange(val) {
   const kpiExposureNote = document.querySelector('.kpi-exposure small');
   if (kpiExposureNote) kpiExposureNote.textContent = '動態分析';
   
-  const briefLead = document.querySelector('.brief-lead');
-  if (briefLead) briefLead.textContent = `[連線中] 正在透過 API 分析 ${val} 區間的數據... (無 Mock 資料)`;
-  
-  const bars = document.querySelectorAll('.bar-set i');
-  if (bars && bars.length === 4) {
-    bars.forEach((bar) => bar.style.height = '10%');
-  }
+  const dynamicContent = document.getElementById('api-dynamic-content');
+  if (dynamicContent) dynamicContent.textContent = `[連線中] 正在透過 Gemini API 分析 ${val} 區間的數據...`;
 
-  const animatedElements = document.querySelectorAll('.risk-index-card, .executive-kpis, .priority-brief');
+  const animatedElements = document.querySelectorAll('.risk-index-card, .executive-kpis');
   animatedElements.forEach(el => {
     el.style.opacity = '0.6';
     el.style.transition = 'opacity 0.18s ease';
@@ -132,7 +127,7 @@ async function handlePeriodChange(val) {
     const chatId = listData.data?.[0]?._id;
     if (!chatId) throw new Error('沒有找到可用的分析對話');
 
-    const question = `請針對「${val}」區間，從知識庫中整理合規風險指標摘要。`;
+    const question = `請針對「${val}」區間，從知識庫中整理合規風險指標與重大異常摘要。`;
     const chatRes = await fetch(`${GEMINI_CHAT_API_BASE}/${chatId}`, {
       method: 'POST',
       headers: getChatApiHeaders(),
@@ -149,7 +144,7 @@ async function handlePeriodChange(val) {
     }
 
     if (riskScore) riskScore.textContent = 'API';
-    if (riskStatus) riskStatus.textContent = '動態';
+    if (riskStatus) riskStatus.textContent = '動態運算';
     if (riskNote) riskNote.textContent = '即時連線 Gemini';
     if (avoidVal) avoidVal.textContent = '請見摘要報告';
     if (avoidNote) avoidNote.textContent = 'API 分析完成';
@@ -159,12 +154,12 @@ async function handlePeriodChange(val) {
     if (kpiExposure) kpiExposure.textContent = '動態';
     if (kpiExposureNote) kpiExposureNote.textContent = '連線成功';
     
-    if (briefLead) briefLead.textContent = `[API 即時回應] ${aiText}`;
+    if (dynamicContent) dynamicContent.textContent = aiText;
     
     toast(`「${val}」風險數據已由 API 回應！`);
     
   } catch (e) {
-    if (briefLead) briefLead.textContent = `[API 錯誤] ${e.message}。系統已徹底拔除 Mock 資料，必須連線至有效伺服器。`;
+    if (dynamicContent) dynamicContent.textContent = `[API 錯誤] ${e.message}。系統已徹底拔除 Mock 資料，必須連線至有效伺服器。`;
     toast(`API 發生異常: ${e.message}`);
   }
 }
@@ -387,4 +382,7 @@ document.addEventListener('keydown', event => {
 document.addEventListener('DOMContentLoaded', () => {
   initInsightInteractions();
   loadExternalBenchmark();
+  
+  // 主動觸發 API 連線，以替換掉初始畫面的預設狀態
+  handlePeriodChange('近 14 天');
 });
