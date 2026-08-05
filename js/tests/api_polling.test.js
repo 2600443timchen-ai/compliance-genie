@@ -1,29 +1,9 @@
 const assert = require('assert');
+const { fetchSummaryWithPolling } = require('../api.js');
 
 // 模擬的全域變數
 global.GEMINI_CHAT_API_BASE = 'https://api.mock';
 global.getChatApiHeaders = () => ({});
-global.PROMPT_TEMPLATES = { riskInsight: () => 'mock prompt' };
-
-// 抽出被測試的輪詢邏輯 (在此直接定義或 import)
-async function fetchSummaryWithPolling(chatId, maxRetries = 3, pollInterval = 10) {
-  let summaryData = null;
-  for (let i = 0; i < maxRetries; i++) {
-    await new Promise(r => setTimeout(r, pollInterval));
-    const summaryRes = await global.mockFetch(`${global.GEMINI_CHAT_API_BASE}/summary`);
-    if (summaryRes.ok) {
-      const data = await summaryRes.json();
-      if (data.data || data.content) {
-        summaryData = data;
-        break;
-      }
-    }
-  }
-  if (!summaryData) {
-    throw new Error("API 處理逾時，無法取得完整摘要");
-  }
-  return summaryData;
-}
 
 async function runTests() {
   console.log("Running Polling Logic Tests...");

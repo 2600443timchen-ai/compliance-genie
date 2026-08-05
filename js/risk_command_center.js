@@ -134,30 +134,9 @@ async function handlePeriodChange(val) {
       body: JSON.stringify({ question, streaming: false })
     });
     
-    // 實作輪詢 (Polling) 機制，取代原本脆弱的寫死延遲
-    let summaryData = null;
-    let aiText = `API 已成功處理請求 (Chat ID: ${chatId})。`;
-    const maxRetries = 10;
-    const pollInterval = 1000;
-    
-    for (let i = 0; i < maxRetries; i++) {
-      await new Promise(r => setTimeout(r, pollInterval));
-      const summaryRes = await fetch(`${GEMINI_CHAT_API_BASE}/summary?chat_id=${chatId}&type=markdown`, { headers: getChatApiHeaders() });
-      if (summaryRes.ok) {
-        const data = await summaryRes.json();
-        // 假設如果資料還在產生，API 可能會回傳特定狀態或空值
-        if (data.data || data.content) {
-          summaryData = data;
-          break;
-        }
-      }
-    }
-    
-    if (summaryData) {
-      aiText = summaryData.data || summaryData.content || aiText;
-    } else {
-      throw new Error("API 處理逾時，無法取得完整摘要");
-    }
+    // 呼叫獨立的 API 模組進行輪詢
+    const summaryData = await fetchSummaryWithPolling(chatId);
+    let aiText = summaryData.data || summaryData.content || `API 已成功處理請求 (Chat ID: ${chatId})。`;
 
     if (riskScore) riskScore.textContent = 'API';
     if (riskStatus) riskStatus.textContent = '動態運算';
