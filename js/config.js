@@ -1,7 +1,8 @@
 /* ============================================================
    Global Configuration
-   一般資料功能沿用 Portal API；AI 對話經同源後端代理，確保
-   串流格式一致、聊天室可追蹤，並避免由前端決定聊天室 ID。
+   API 端點、鑑權設定與中央化提詞管理。
+   所有資料查詢均透過 Gemini Cloud Chat API 即時取得，
+   本系統不包含任何寫死的假資料或 Mock 數值。
    ============================================================ */
 
 // ✅ 基礎 API 端點 (Portal API 1.0)
@@ -26,7 +27,25 @@ const getChatApiHeaders = () => ({
   'x-application-tenant': GEMINI_TENANT
 });
 
-// 中央化提詞管理 (Centralized Prompt Management)
+// 中央化提詞管理 (Centralized Prompt Templates)
+// 每個 prompt 均會送至 Gemini Chat API，由 AI 根據知識庫即時回覆
 const PROMPT_TEMPLATES = {
-  riskInsight: (period) => `請針對「${period}」區間，從知識庫中整理合規風險指標與重大異常摘要。`
+  /** 儀表板總覽 — 頁面載入時發送 */
+  dashboardOverview: (period) =>
+    `請針對「${period}」區間，從知識庫中整理合規風險完整分析報告，包含：\n` +
+    `1. 新增高風險事件數量與趨勢變化\n` +
+    `2. 潛在財務曝險金額估算\n` +
+    `3. SLA 逾期風險案件數與部門分布\n` +
+    `4. 待完成法規缺口與最近期限\n` +
+    `5. 整體企業風險指數評估與建議\n` +
+    `請以 Markdown 格式回覆，並標註數據來源。`,
+
+  /** 指標深鑽 — 使用者點擊 KPI 時發送 */
+  insightDrill: (topic) =>
+    `請深入分析「${topic}」的詳細情況，包含：\n` +
+    `- 目前數值與趨勢\n` +
+    `- 根因分析\n` +
+    `- 判斷依據與資料來源\n` +
+    `- 建議主管的下一步行動\n` +
+    `請以 Markdown 格式回覆。`
 };
