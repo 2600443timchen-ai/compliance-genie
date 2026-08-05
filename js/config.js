@@ -25,3 +25,8 @@ const getChatApiHeaders = () => ({
   'Authorization': `Bearer ${GEMINI_JWT}`,
   'x-application-tenant': GEMINI_TENANT
 });
+
+// 中央化提詞管理 (Centralized Prompt Management)
+const PROMPT_TEMPLATES = {
+  riskInsight: (period) => `請針對「${period}」區間，從知識庫中整理合規風險指標與重大異常摘要。`
+};
