@@ -1,20 +1,62 @@
-# Compliance Genie 架構文件 (Architecture)
+# Compliance Genie — Architecture Document
 
-## 系統演進
-本系統已從初期的「靜態 Mock 資料展示 (High-Density Domain Mock Analytics)」轉型為「動態 API 驅動 (Dynamic API-Driven)」。所有核心風險指標與摘要，皆直接向 Gemini Cloud 發送即時分析請求取得。
+## 系統概覽
 
-## 資料流 (Data Flow)
-1. **觸發層 (Trigger Layer)**: 使用者透過 UI 切換時間區間 (例如「近 14 天」) 觸發 `handlePeriodChange`。
-2. **組態與提詞層 (Configuration & Prompt Layer)**: 前端從 `config.js` 載入定義好的 LLM 提詞模板 (`PROMPT_TEMPLATES`)，避免業務邏輯與 UI 視圖過度耦合。
-3. **API 互動層 (API Interaction Layer)**:
-   - `POST /assistant/chat/list` 取得當前可用的對話 ID。
-   - `POST /assistant/chat/{chat_id}` 提交組裝好的風險分析問題 (Prompt)。
-   - **輪詢機制 (Polling Mechanism) 與依賴注入 (Dependency Injection)**: 已將輪詢邏輯抽離為純函式，透過 `options` 參數動態注入 `baseUrl`, `headers`, 與 `fetchFn`。這使模組完全脫離對全域環境的依賴，支援無縫單元測試。非同步呼叫 `GET /assistant/chat/summary?chat_id={chat_id}&type=markdown`，直到取得最終報告或達最大超時限制。
-4. **渲染層 (Rendering Layer)**: 將取得的 Markdown 報告注入到 `api-dynamic-content` 區塊，並更新周圍 KPI 標籤狀態。
+Compliance Genie 合規精靈是一套透過 Gemini Cloud Chat API 驅動的合規風險洞察儀表板。
+**本系統不包含任何寫死的假資料、Mock 數值或硬編碼的分析結果。**
+所有顯示於頁面上的數據均來自即時的 API 查詢。
 
-## 錯誤處理與邊界條件 (Error Handling & Edge Cases)
-- **API 逾時 / 網路異常**: 若輪詢超過最大次數，或發生網路斷線，將在 UI 顯示 `[API 錯誤]` 提示，並退回安全狀態。
-- **資料庫快取 (Mock Data)**: 本專案嚴格禁止任何寫死的 Mock 資料。所有 `.html` 預設呈現 `--` 或 `載入中`。
+## 資料流架構
 
-## 測試策略 (Testing Strategy)
-- 由於是純靜態前端，主要的非同步輪詢機制 (Polling) 已抽離為純函式，並透過 `js/tests/api_polling.test.js` 進行獨立的單元測試驗證邊界條件 (如重試次數與錯誤拋出)。
+```
+[使用者開啟頁面]
+      │
+      ▼
+[config.js] ── API 端點、JWT、Prompt 模板
+      │
+      ▼
+[api.js] ── API Service Module (Dependency Injection)
+  │  getChatId()      → GET  /assistant/chat/list
+  │  askQuestion()    → POST /assistant/chat/{chatId}
+  │  fetchSummaryWithPolling() → GET /assistant/chat/summary
+  │  askAndPoll()     → 完整的「發問 → 輪詢」封裝
+      │
+      ▼
+[risk_command_center.js] ── 儀表板業務邏輯
+  │  loadDashboardData()  → 頁面載入時呼叫 API
+  │  handlePeriodChange() → 切換期間時呼叫 API
+  │  showInsight()        → KPI 深鑽時呼叫 API
+  │  askDashboardAssistant() → AI 助理對話呼叫 API
+      │
+      ▼
+[v2_workspace_analytical_finance.html] ── UI 渲染
+```
+
+## API 端點對照
+
+| 功能 | 端點 | 方法 | 說明 |
+|------|------|------|------|
+| 取得對話列表 | `/assistant/chat/list` | GET | 取得可用的 Chat ID |
+| 發送問題 | `/assistant/chat/{chatId}` | POST | 向 AI 發送分析問題 |
+| 輪詢摘要 | `/assistant/chat/summary` | GET | 等待 AI 處理完成並取得回覆 |
+
+Base URL: `https://cloud.geminidata.com/api/portal/api10`
+認證: Bearer JWT + x-application-tenant Header
+
+## 設計原則
+
+### 依賴注入 (Dependency Injection)
+`api.js` 中的所有函式均接受 `options` 物件，其中包含 `baseUrl`、`headers`、`fetchFn`。
+- 生產環境：由 `risk_command_center.js` 注入真實的 `fetch` 與設定
+- 測試環境：由 `api_polling.test.js` 注入 mock 函式
+
+### 零假資料原則
+- HTML 中所有數值欄位的預設值為 `--` 或「載入中」
+- 頁面載入時立即觸發 API 呼叫
+- 任何 API 失敗都會顯示明確的錯誤訊息，不會回退到假資料
+- `INSIGHT_DEFINITIONS` 等寫死的 Mock 物件已被徹底移除
+
+### Prompt 集中管理
+所有送至 Chat API 的提詞均定義於 `config.js` 的 `PROMPT_TEMPLATES`：
+- `dashboardOverview(period)` — 頁面載入時的綜合分析
+- `insightDrill(topic)` — KPI 點擊深鑽時的專題分析
