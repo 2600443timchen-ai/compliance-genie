@@ -23,9 +23,16 @@ from pathlib import Path
 
 
 API_BASE = os.environ.get("GEMINI_API_BASE", "https://cloud.geminidata.com/api/v1").rstrip("/")
+PORTAL_API_BASE = os.environ.get(
+    "GEMINI_PORTAL_API_BASE",
+    "https://cloud.geminidata.com/api/portal/api10",
+).rstrip("/")
 TENANT_ID = os.environ.get("GEMINI_TENANT_ID", "6a439e670763de002d27d6bd")
 MAX_CSV_BYTES = 5 * 1024 * 1024
+MAX_CHAT_BYTES = 10 * 1024 * 1024
+MAX_QUESTION_BYTES = 32 * 1024
 CACHE_SECONDS = 60
+WORKSPACE_CHAT_TITLE = os.environ.get("GEMINI_WORKSPACE_CHAT_TITLE", "Compliance Genie 工作台")
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 SOURCE_CATALOG = {
@@ -44,6 +51,8 @@ SOURCE_CATALOG = {
 
 _cache: dict[str, tuple[float, dict]] = {}
 _cache_lock = threading.Lock()
+_chat_lock = threading.Lock()
+_chat_id: str | None = None
 
 
 class UpstreamError(RuntimeError):
@@ -81,6 +90,128 @@ def request_bytes(url: str, *, authenticated: bool, attempts: int = 2) -> tuple[
             if attempt + 1 < attempts:
                 time.sleep(0.35 * (attempt + 1))
     raise UpstreamError(f"Gemini Data API 無法連線：{last_error}")
+
+
+def portal_headers(*, content_type: bool = False) -> dict[str, str]:
+    headers = {
+        "Accept": "application/json, text/event-stream;q=0.9, */*;q=0.8",
+        "Authorization": f"Bearer {api_token()}",
+        "x-application-tenant": TENANT_ID,
+    }
+    if content_type:
+        headers["Content-Type"] = "application/json"
+    return headers
+
+
+def portal_json(path: str, *, timeout: int = 30) -> object:
+    request = urllib.request.Request(
+        f"{PORTAL_API_BASE}{path}",
+        headers=portal_headers(),
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw = response.read(MAX_CHAT_BYTES + 1)
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as error:
+        raise UpstreamError(f"Gemini Chat API 無法連線：{error}") from error
+    if len(raw) > MAX_CHAT_BYTES:
+        raise UpstreamError("Gemini Chat API 回應超過允許大小")
+    try:
+        return json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise UpstreamError("Gemini Chat API 未回傳有效 JSON") from error
+
+
+def get_dashboard_chat() -> dict:
+    """Call the documented assistant/chat/list endpoint on page bootstrap."""
+    global _chat_id
+    with _chat_lock:
+        payload = portal_json("/assistant/chat/list")
+        chats = payload.get("data") if isinstance(payload, dict) else None
+        if not isinstance(chats, list) or not chats:
+            raise UpstreamError("Gemini Chat API 沒有可用聊天室")
+        selected = next(
+            (chat for chat in chats if chat.get("title") == WORKSPACE_CHAT_TITLE),
+            None,
+        )
+        if selected is None and _chat_id:
+            selected = next((chat for chat in chats if str(chat.get("_id")) == _chat_id), None)
+        if selected is None:
+            selected = chats[0]
+        _chat_id = str(selected.get("_id") or "")
+        if not _chat_id:
+            raise UpstreamError("Gemini Chat API 未提供聊天室 ID")
+        return selected
+
+
+def fetch_chat_messages(chat_id: str) -> list[dict]:
+    payload = portal_json(
+        f"/assistant/chat/{urllib.parse.quote(chat_id, safe='')}/messages",
+        timeout=45,
+    )
+    messages = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(messages, list):
+        raise UpstreamError("Gemini Chat 訊息格式不正確")
+    return [message for message in messages if isinstance(message, dict)]
+
+
+def ask_dashboard_chat(chat_id: str, question: str) -> dict:
+    selected = get_dashboard_chat()
+    if chat_id != str(selected.get("_id")):
+        raise KeyError(chat_id)
+    request = urllib.request.Request(
+        f"{PORTAL_API_BASE}/assistant/chat/{urllib.parse.quote(chat_id, safe='')}",
+        data=json.dumps({"q": question, "streaming": True}, ensure_ascii=False).encode("utf-8"),
+        headers=portal_headers(content_type=True),
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=150) as response:
+            raw = response.read(MAX_CHAT_BYTES + 1)
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as error:
+        raise UpstreamError(f"Gemini Chat 回覆失敗：{error}") from error
+    if len(raw) > MAX_CHAT_BYTES:
+        raise UpstreamError("Gemini Chat 回覆超過允許大小")
+
+    message_id = ""
+    user_message_id = ""
+    fallback = ""
+    for raw_line in raw.decode("utf-8", errors="replace").splitlines():
+        line = raw_line.strip()
+        if not line.startswith("data:"):
+            continue
+        event_text = line[5:].strip()
+        if not event_text or event_text == "[DONE]":
+            continue
+        try:
+            event = json.loads(event_text)
+        except json.JSONDecodeError:
+            continue
+        message_id = str(event.get("messageId") or message_id)
+        user_message_id = str(event.get("userMessageId") or user_message_id)
+        if isinstance(event.get("result"), str):
+            fallback = event["result"]
+
+    messages = fetch_chat_messages(chat_id)
+    answer_message = next(
+        (message for message in reversed(messages) if message_id and str(message.get("_id")) == message_id),
+        None,
+    )
+    if answer_message is None:
+        answer_message = next(
+            (message for message in reversed(messages) if message.get("role") in {"ai", "assistant"}),
+            None,
+        )
+    answer = str((answer_message or {}).get("content") or fallback).strip()
+    if not answer:
+        raise UpstreamError("Gemini Chat 已完成，但沒有可顯示的回答")
+    return {
+        "chat_id": chat_id,
+        "chat_title": selected.get("title") or "Untitled",
+        "message_id": message_id,
+        "user_message_id": user_message_id,
+        "answer": answer,
+    }
 
 
 def fetch_source(source_id: str) -> dict:
@@ -158,6 +289,24 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def send_chat_sse(self, payload: dict) -> None:
+        event = json.dumps({
+            "result": payload["answer"],
+            "chatId": payload["chat_id"],
+            "chatTitle": payload["chat_title"],
+            "messageId": payload["message_id"],
+            "userMessageId": payload["user_message_id"],
+        }, ensure_ascii=False)
+        body = f"data: {event}\n\ndata: [DONE]\n\n".encode("utf-8")
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-cache, no-store")
+        self.send_header("X-Accel-Buffering", "no")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
         path = urllib.parse.urlparse(self.path).path
         if path == "/api/health":
@@ -167,6 +316,21 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 "api_base": API_BASE,
                 "token_configured": bool(os.environ.get("GEMINI_API_TOKEN", "").strip()),
             })
+            return
+        if path == "/api/chat/session":
+            try:
+                chat = get_dashboard_chat()
+                self.send_json(HTTPStatus.OK, {
+                    "status": "ok",
+                    "mode": "live",
+                    "endpoint": "/assistant/chat/list",
+                    "chat_id": chat["_id"],
+                    "chat_title": chat.get("title") or "Untitled",
+                })
+            except UpstreamError as error:
+                self.send_json(HTTPStatus.BAD_GATEWAY, {"status": "error", "message": str(error)})
+            except Exception:
+                self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"status": "error", "message": "Chat API 初始化失敗"})
             return
         prefix = "/api/analytics/sources/"
         if path.startswith(prefix):
@@ -181,6 +345,33 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"status": "error", "message": "後端處理失敗"})
             return
         super().do_GET()
+
+    def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
+        path = urllib.parse.urlparse(self.path).path
+        prefix = "/api/chat/"
+        if not path.startswith(prefix):
+            self.send_json(HTTPStatus.NOT_FOUND, {"status": "error", "message": "找不到 API"})
+            return
+        chat_id = urllib.parse.unquote(path[len(prefix):]).strip("/")
+        try:
+            content_length = int(self.headers.get("Content-Length", "0") or 0)
+            if content_length <= 0 or content_length > MAX_QUESTION_BYTES:
+                self.send_json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"status": "error", "message": "問題內容過長或為空"})
+                return
+            payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
+            question = str(payload.get("q") or payload.get("question") or "").strip()
+            if not question:
+                self.send_json(HTTPStatus.BAD_REQUEST, {"status": "error", "message": "缺少問題內容"})
+                return
+            self.send_chat_sse(ask_dashboard_chat(chat_id, question))
+        except KeyError:
+            self.send_json(HTTPStatus.NOT_FOUND, {"status": "error", "message": "聊天室不存在"})
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            self.send_json(HTTPStatus.BAD_REQUEST, {"status": "error", "message": "請求格式不正確"})
+        except UpstreamError as error:
+            self.send_json(HTTPStatus.BAD_GATEWAY, {"status": "error", "message": str(error)})
+        except Exception:
+            self.send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"status": "error", "message": "Chat API 處理失敗"})
 
     def log_message(self, message: str, *args) -> None:
         print(f"[{self.log_date_time_string()}] {message % args}")
