@@ -1,3 +1,8 @@
+param(
+    [switch]$NoOpen,
+    [int]$Port = 8765
+)
+
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
@@ -21,4 +26,8 @@ if (-not $env:GEMINI_API_TOKEN) {
 
 $env:GEMINI_API_BASE = 'https://cloud.geminidata.com/api/v1'
 Set-Location -LiteralPath $projectRoot
-python .\analytics_server.py --host 127.0.0.1 --port 8765 --open
+$serverArgs = @('.\analytics_server.py', '--host', '127.0.0.1', '--port', $Port)
+if (-not $NoOpen) {
+    $serverArgs += '--open'
+}
+python @serverArgs
