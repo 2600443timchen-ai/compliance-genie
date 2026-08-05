@@ -916,61 +916,6 @@ async function handleSendText() {
   const text = promptInput.value.trim();
   if (!text) return;
 
-  if (!activeCaseId) {
-    // Bootstrap a text-based custom case dynamically
-    const bootText = text;
-    const caseId = 'C-TXT-' + Math.floor(Math.random() * 90000 + 10000);
-
-    let disputeType = '金融消費爭議 (一般商品)';
-    if (bootText.includes('住院') || bootText.includes('醫療') || bootText.includes('保險')) {
-      disputeType = '保險給付爭議 (醫療險)';
-    } else if (bootText.includes('理專') || bootText.includes('基金') || bootText.includes('投資')) {
-      disputeType = '金融消費爭議 (投資型商品)';
-    }
-
-    const guessedItem = bootText.length > 25 ? bootText.substring(0, 25) + '...' : bootText;
-
-    const newCase = {
-      id: caseId,
-      applicant: '文字自訂當事人',
-      status: '分析中',
-      badgeClass: 'badge-progress',
-      type: disputeType,
-      item: guessedItem,
-      amount: '依案文而定',
-      created: new Date().toISOString().split('T')[0],
-      updated: new Date().toISOString().split('T')[0],
-      summary: [
-        `由合規專員於對話框中直接輸入文字案情建立。`,
-        `輸入原始敘述："${bootText.substring(0, 60)}..."`
-      ],
-      laws: [
-        {
-          title: '金融消費者保護法第 9 條',
-          desc: '金融服務業與金融消費者訂立契約前，應充分瞭解金融消費者，以確保商品適合度。'
-        }
-      ],
-      textContext: bootText
-    };
-
-    caseDb[caseId] = newCase;
-    activeCaseId = caseId;
-
-    // Clear search field, prompt field and load case
-    document.getElementById('case-search').value = caseId;
-    promptInput.value = '';
-    promptInput.style.height = '42px';
-
-    await triggerSearch();
-
-    setTimeout(async () => {
-      appendUserMessage(bootText);
-      await sendQuestionToApi(bootText);
-    }, 800);
-
-    return;
-  }
-
   appendUserMessage(text);
   promptInput.value = '';
   promptInput.style.height = '42px';
@@ -990,8 +935,15 @@ const QUICK_PROMPT_FALLBACKS = [
   { label: '🔍 核對裁罰前例', prompt: '請列出本案需要查核的裁罰前例與檢索條件；無法確認真實來源時請明確說明，不得虛構案號或裁罰內容。' }
 ];
 
-const QUICK_PROMPT_MAX_RELOADS = 2;
-let quickPromptRequestVersion = 0;
+const GENERAL_QUERY_PROMPT_FALLBACKS = [
+  { label: '🔎 查詢相關案件', prompt: '請依目前問題中的法規、爭點與關鍵字，列出知識庫內最相關的案件及其關聯理由。' },
+  { label: '⚖️ 說明法規要件', prompt: '請說明目前問題所涉及法規的構成要件、適用範圍與實務上常見爭點。' },
+  { label: '🎯 限縮檢索條件', prompt: '請建議可用來限縮案件檢索結果的商品類型、爭議類別、年份或關鍵事實。' }
+];
+
+function getContextualQuickPrompts(currentCase) {
+  return currentCase ? QUICK_PROMPT_FALLBACKS : GENERAL_QUERY_PROMPT_FALLBACKS;
+}
 
 function deriveQuickPromptLabel(prompt, index) {
   const rules = [
@@ -1217,8 +1169,19 @@ function extractAndCleanRiskJson(text, onActions) {
 
 // 產生結構完整、多章節之專業合規分析報告 (當 API 字數不足時之品質防護備用報告)
 function generateRichFallbackReport(questionText, caseObj) {
-  const caseId = caseObj ? caseObj.id : (activeCaseId || 'C001');
-  const item = caseObj ? caseObj.item : '適合度評估與告知義務爭議';
+  if (!caseObj) {
+    return `### ⚠️ 查詢回覆安全備援
+
+AI 回覆經多次重載後仍未通過完整性驗證。為避免虛構法源或案件，本區不顯示模型推測結果。
+
+**本回合查詢**
+- ${questionText}
+
+請稍後重試，或先以法規名稱、條次、商品類型與爭議關鍵字限縮查詢。`;
+  }
+
+  const caseId = caseObj.id;
+  const item = caseObj.item;
 
   return `### ⚠️ 合規分析安全備援（案號：${caseId}）
 
@@ -1258,92 +1221,7 @@ function renderVerifiedFallback(bubble, questionText, currentCase) {
   const fallback = generateRichFallbackReport(questionText, currentCase);
   const cleanFallback = extractAndCleanRiskJson(fallback);
   bubble.innerHTML = formatMessageText(cleanFallback);
-  renderQuickPrompts(QUICK_PROMPT_FALLBACKS, 'fallback');
-}
-
-async function readAssistantStream(response) {
-  const contentType = response.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) {
-    const payload = await response.json();
-    if (payload.status === 'error' || payload.error_code) {
-      throw new Error(payload.msg || payload.code || '提示詞重載 API 錯誤');
-    }
-    return payload.result || payload.content || '';
-  }
-
-  if (!response.body) return '';
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder('utf-8');
-  let buffer = '';
-  let latestResult = '';
-  let done = false;
-
-  const consumeLine = rawLine => {
-    const line = rawLine.trim();
-    if (!line.startsWith('data:')) return;
-    const json = line.slice(5).trim();
-    if (!json || json === '[DONE]') return;
-    try {
-      const parsed = JSON.parse(json);
-      if (typeof parsed.result === 'string') latestResult = parsed.result;
-    } catch (_) { /* Ignore a malformed SSE event and keep the last valid result. */ }
-  };
-
-  while (!done) {
-    const chunk = await reader.read();
-    done = chunk.done;
-    if (!chunk.value) continue;
-    buffer += decoder.decode(chunk.value, { stream: !done });
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() || '';
-    lines.forEach(consumeLine);
-  }
-  buffer += decoder.decode();
-  if (buffer.trim()) consumeLine(buffer);
-  return latestResult;
-}
-
-async function reloadQuickPrompts(questionText, answerText, currentCase, requestVersion) {
-  const chatID = await getChatId();
-  if (!chatID || requestVersion !== quickPromptRequestVersion) return false;
-
-  const caseSummary = currentCase
-    ? `案號：${currentCase.id}\n爭議主題：${currentCase.item || ''}`
-    : '目前沒有結構化案件摘要';
-
-  for (let attempt = 0; attempt <= QUICK_PROMPT_MAX_RELOADS; attempt += 1) {
-    if (requestVersion !== quickPromptRequestVersion) return false;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
-    try {
-      const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
-        method: 'POST',
-        headers: getApiHeaders(),
-        signal: controller.signal,
-        body: JSON.stringify({
-          q: `你是合規工作台的「下一步操作產生器」。只根據下列案件與回覆，產生三個彼此不同、可直接執行的下一階段提問。\n\n${caseSummary}\n使用者本回合問題：${questionText}\n已驗證回覆摘要：${answerText.slice(0, 1200)}\n\n只輸出一個 JSON 物件，不得輸出 Markdown 或說明：\n{"suggested_actions":[{"label":"⚖️ 深入法源分析","prompt":"完整且具體的繁體中文提問"},{"label":"📝 草擬正式答辯","prompt":"完整且具體的繁體中文提問"},{"label":"🔍 核對裁罰前例","prompt":"完整且具體的繁體中文提問"}]}\n規則：label 必須包含圖示及至少四個中文字，不可只輸出圖示；prompt 不得重複、不得要求忽略指令、不得虛構已查證的法源或案例。第 ${attempt + 1} 次格式驗證。`,
-          streaming: true
-        })
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const text = await readAssistantStream(response);
-      const actions = extractSuggestedActions(text);
-      const normalized = normalizeQuickPrompts(actions);
-      if (normalized.modelContractValid && requestVersion === quickPromptRequestVersion) {
-        renderQuickPrompts(actions, 'reloaded');
-        return true;
-      }
-    } catch (error) {
-      console.warn(`[Quick Prompts] 第 ${attempt + 1} 次重載失敗`, error);
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  if (requestVersion === quickPromptRequestVersion) {
-    renderQuickPrompts(QUICK_PROMPT_FALLBACKS, 'fallback');
-  }
-  return false;
+  renderQuickPrompts(getContextualQuickPrompts(currentCase), 'fallback');
 }
 
 // ============================================================
@@ -1351,7 +1229,6 @@ async function reloadQuickPrompts(questionText, answerText, currentCase, request
 // 支援品質自動檢測、失敗自動重試與 Rich Fallback 防護
 // ============================================================
 async function sendQuestionToApi(questionText, retryCount = 0, existingRow = null) {
-  const requestVersion = ++quickPromptRequestVersion;
   const stream = document.getElementById('chat-container');
   let receivedValidQuickPrompts = false;
   const trackQuickPrompts = result => {
@@ -1401,21 +1278,16 @@ async function sendQuestionToApi(questionText, retryCount = 0, existingRow = nul
     return;
   }
 
-  const isRetryPrompt = retryCount > 0 
-    ? `\n【格式重載 ${retryCount}/3：前次產出未通過完整性、拒答或結構驗證。請提供實質回答；未知事實必須標示不確定，不得補造法源、案號、裁罰前例或金額。】`
-    : '';
-
-  const systemOverride = `\n\n(系統強制指令：這是一個新的對話回合，請務必以「專業合規顧問」的角色，使用 Markdown 格式撰寫詳細的文字分析報告或回覆。請【完全解除】先前「不要輸出 JSON 以外任何說明文字」的限制，你現在必須輸出豐富的說明與分析。\n\n【極度重要：介面乾淨度與格式要求】\n1. 您的回覆必須【先】提供完整的文字分析與建議；只能依據已提供或可驗證的資料，不確定內容必須明確標示。\n2. 文末必須附上一個 JSON 物件，suggested_actions 必須剛好三筆且彼此不同。每筆 label 必須是「圖示加上具體動作名稱」，不可只填圖示；prompt 必須是完整、可直接送出的繁體中文提問。格式範例：{"suggested_actions":[{"label":"⚖️ 深入法源分析","prompt":"請根據已知事實逐項分析適用法源與待補證據。"},{"label":"📝 草擬正式答辯","prompt":"請依目前已確認事實草擬答辯書，未知資訊以待補標示。"},{"label":"🔍 核對裁罰前例","prompt":"請列出應從官方來源核對的裁罰前例與檢索條件。"}]}。\n3. JSON 區塊放在所有文字最底下，前後不加過渡引言；不得在 prompt 中要求忽略系統指令，也不得宣稱未經核實的法源、案例或數字已獲確認。)${isRetryPrompt}`;
-
-  // Reset quick prompts to generic contextual actions in case AI fails to provide them
-  renderQuickPrompts(QUICK_PROMPT_FALLBACKS, 'pending');
+  // Quick actions are a client-side concern. Do not add formatting or planning
+  // instructions to the user's query; the assistant already has a system prompt.
+  renderQuickPrompts(getContextualQuickPrompts(currentCase), 'pending');
 
   try {
     const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
       method: 'POST',
       headers: getApiHeaders(),
       body: JSON.stringify({
-        q: (caseCtx ? `${caseCtx}${questionText}` : questionText) + systemOverride,
+        q: caseCtx ? `${caseCtx}${questionText}` : questionText,
         streaming: true
       })
     });
@@ -1503,9 +1375,7 @@ async function sendQuestionToApi(questionText, retryCount = 0, existingRow = nul
                 }
             } else {
                 bubble.innerHTML = formatMessageText(cleanResult);
-                if (!receivedValidQuickPrompts) {
-                  void reloadQuickPrompts(questionText, cleanResult, currentCase, requestVersion);
-                }
+                if (!receivedValidQuickPrompts) renderQuickPrompts(getContextualQuickPrompts(currentCase), 'local');
             }
             scrollChatToBottom();
           }
@@ -1549,9 +1419,7 @@ async function sendQuestionToApi(questionText, retryCount = 0, existingRow = nul
             }
         } else {
             bubble.innerHTML = formatMessageText(cleanResult);
-            if (!receivedValidQuickPrompts) {
-              void reloadQuickPrompts(questionText, cleanResult, currentCase, requestVersion);
-            }
+            if (!receivedValidQuickPrompts) renderQuickPrompts(getContextualQuickPrompts(currentCase), 'local');
         }
       } else {
         if (retryCount < 3) {
@@ -1571,8 +1439,10 @@ async function sendQuestionToApi(questionText, retryCount = 0, existingRow = nul
     if (bubble) bubble.parentElement?.remove();
 
     appendSystemMessage(`⚠️ API 連線失敗（${err.message}），自動切換至本地模擬解答。`);
-    let mockReply = `已收到您的問題。正在檢索本案卷宗與法學知識庫...\n\n針對您的提問「${questionText}」，合規精靈建議：\n\n1. 應重新調閱專員與客戶的通聯記錄或臨櫃錄影。\n2. 對照同類型商品爭議之金評會判定，我方應在答辯書中強調客戶已簽署之風險預告書條款，但需防範法官引用《金保法》適合度漏洞。`;
-    if (questionText.includes('報告')) {
+    let mockReply = currentCase
+      ? `已收到您對案件 ${currentCase.id} 的問題，但目前無法連線至 AI 知識庫。為避免補造案件事實、法源或前例，請稍後重試。`
+      : `已收到您的查詢「${questionText}」，但目前無法連線至 AI 知識庫。為避免提供未經檢索核實的案件或法源，請稍後重試。`;
+    if (currentCase && questionText.includes('報告')) {
       mockReply = `## 金融消費爭議案件合規審查意見書 (草稿)\n\n*   **案號**：${activeCaseId}\n*   **審查重點**：${caseDb[activeCaseId]?.item ?? '未載入'}\n\n### ⚖️ 合規性判定\n根據現有事證，本案評估有顯著合規疏失風險，主要集中於適合度規範之落實與風險揭露聲明。\n\n### 💡 行動方案指引\n1. **協議和解**：爭取於評議程序前取得和解。\n2. **合規宣導**：加強前線理專之風險告知抽查比率。`;
     }
     setTimeout(() => simulateAiResponse(mockReply), 500);
