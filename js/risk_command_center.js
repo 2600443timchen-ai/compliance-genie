@@ -127,20 +127,36 @@ async function handlePeriodChange(val) {
     const chatId = listData.data?.[0]?._id;
     if (!chatId) throw new Error('沒有找到可用的分析對話');
 
-    const question = `請針對「${val}」區間，從知識庫中整理合規風險指標與重大異常摘要。`;
+    const question = PROMPT_TEMPLATES.riskInsight(val);
     const chatRes = await fetch(`${GEMINI_CHAT_API_BASE}/${chatId}`, {
       method: 'POST',
       headers: getChatApiHeaders(),
       body: JSON.stringify({ question, streaming: false })
     });
     
-    await new Promise(r => setTimeout(r, 2000));
-    const summaryRes = await fetch(`${GEMINI_CHAT_API_BASE}/summary?chat_id=${chatId}&type=markdown`, { headers: getChatApiHeaders() });
-    
+    // 實作輪詢 (Polling) 機制，取代原本脆弱的寫死延遲
+    let summaryData = null;
     let aiText = `API 已成功處理請求 (Chat ID: ${chatId})。`;
-    if (summaryRes.ok) {
-      const summaryData = await summaryRes.json();
+    const maxRetries = 10;
+    const pollInterval = 1000;
+    
+    for (let i = 0; i < maxRetries; i++) {
+      await new Promise(r => setTimeout(r, pollInterval));
+      const summaryRes = await fetch(`${GEMINI_CHAT_API_BASE}/summary?chat_id=${chatId}&type=markdown`, { headers: getChatApiHeaders() });
+      if (summaryRes.ok) {
+        const data = await summaryRes.json();
+        // 假設如果資料還在產生，API 可能會回傳特定狀態或空值
+        if (data.data || data.content) {
+          summaryData = data;
+          break;
+        }
+      }
+    }
+    
+    if (summaryData) {
       aiText = summaryData.data || summaryData.content || aiText;
+    } else {
+      throw new Error("API 處理逾時，無法取得完整摘要");
     }
 
     if (riskScore) riskScore.textContent = 'API';
