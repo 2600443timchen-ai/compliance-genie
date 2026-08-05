@@ -1,9 +1,7 @@
 const assert = require('assert');
 const { fetchSummaryWithPolling } = require('../api.js');
 
-// 模擬的全域變數
-global.GEMINI_CHAT_API_BASE = 'https://api.mock';
-global.getChatApiHeaders = () => ({});
+// 不再需要依賴全域變數，已改用 Dependency Injection
 
 async function runTests() {
   console.log("Running Polling Logic Tests...");
