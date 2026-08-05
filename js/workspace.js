@@ -1,6 +1,6 @@
 /* Workspace Page Interactivity and API integration
-   純前端模式：直接 POST 到 Portal Chat API（CORS 已開放）
-   動態獲取 chat ID，避免 301 Chat not found 錯誤
+   Chat requests use the same-origin backend proxy so credentials and CORS
+   details never leak into or block the Finance workspace.
 */
 
 let vectorKnowledgeFiles = [];
@@ -12,15 +12,14 @@ const caseDb = {};
 
 async function fetchVectorKnowledge() {
   try {
-    const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/list`, {
-      headers: getApiHeaders()
-    });
+    const response = await fetch('/api/chat/session', {headers: {Accept: 'application/json'}});
     const data = await response.json();
-    if (data.status === 1 && data.knowledge) {
-      vectorKnowledgeFiles = data.knowledge;
+    if (!response.ok || data.status !== 'ok' || data.mode !== 'live' || !data.chat_id) {
+      throw new Error(data.message || `Chat Session API ${response.status}`);
     }
+    activeChatId = data.chat_id;
   } catch (err) {
-    console.warn("無法取得雲端知識庫檔案，保留本地狀態", err);
+    console.warn('無法初始化 Gemini Chat 工作階段', err);
   }
 }
 
@@ -38,12 +37,10 @@ async function initApi() {
 async function getChatId() {
   if (activeChatId) return activeChatId; // 如果已經有了就直接用
   try {
-    const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/list`, {
-      headers: getApiHeaders()
-    });
+    const response = await fetch('/api/chat/session', {headers: {Accept: 'application/json'}});
     const data = await response.json();
-    if (data.data && data.data.length > 0) {
-      activeChatId = data.data[0]._id; // 拿最新的一個會話
+    if (response.ok && data.status === 'ok' && data.mode === 'live' && data.chat_id) {
+      activeChatId = data.chat_id;
       return activeChatId;
     }
     return null;
@@ -383,7 +380,9 @@ function formatMessageText(text) {
   if (!text) return '';
   // 如果載入了 marked.js，則使用它來渲染 Markdown（包含表格、粗體、清單等）
   if (typeof marked !== 'undefined') {
-    return marked.parse(text);
+    return marked.parse(text)
+      .replace(/<table>/g, '<div class="markdown-table-scroll" role="region" aria-label="案件資料表，可水平捲動" tabindex="0"><table>')
+      .replace(/<\/table>/g, '</table></div>');
   }
   // Fallback (萬一沒載入成功)
   return text.replace(/\n/g, '<br>');
@@ -836,6 +835,7 @@ function toggleSection(id, headerEl) {
 }
 
 function appendSystemMessage(text) {
+  setChatConversationVisible();
   const stream = document.getElementById('chat-container');
   const row = document.createElement('div');
   row.className = 'message-row system';
@@ -845,6 +845,7 @@ function appendSystemMessage(text) {
 }
 
 function appendUserMessage(text) {
+  setChatConversationVisible();
   const stream = document.getElementById('chat-container');
   const row = document.createElement('div');
   row.className = 'message-row user';
@@ -854,6 +855,13 @@ function appendUserMessage(text) {
   `;
   stream.appendChild(row);
   scrollChatToBottom();
+}
+
+function setChatConversationVisible() {
+  const emptyState = document.getElementById('chat-empty');
+  const stream = document.getElementById('chat-container');
+  if (emptyState) emptyState.style.display = 'none';
+  if (stream) stream.style.display = 'flex';
 }
 
 // typing effect
@@ -1283,9 +1291,12 @@ async function sendQuestionToApi(questionText, retryCount = 0, existingRow = nul
   renderQuickPrompts(getContextualQuickPrompts(currentCase), 'pending');
 
   try {
-    const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
+    const response = await fetch(`/api/chat/${encodeURIComponent(chatID)}`, {
       method: 'POST',
-      headers: getApiHeaders(),
+      headers: {
+        'Accept': 'text/event-stream',
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         q: caseCtx ? `${caseCtx}${questionText}` : questionText,
         streaming: true

@@ -932,6 +932,40 @@ header {
   font-size: 0.9em;
 }
 
+.markdown-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.markdown-table-scroll table {
+  width: max-content;
+  min-width: 64rem;
+  margin: 0;
+}
+
+.markdown-table-scroll th,
+.markdown-table-scroll td {
+  min-width: 7rem;
+  vertical-align: top;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.message-row.assistant {
+  width: 85%;
+  min-width: 0;
+}
+
+.message-row.assistant .message-bubble {
+  width: 100%;
+  min-width: 0;
+}
+
 .message-bubble th,
 .message-bubble td {
   border: 1px solid var(--border-color);
