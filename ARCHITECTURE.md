@@ -9,7 +9,7 @@
 3. **API 互動層 (API Interaction Layer)**:
    - `POST /assistant/chat/list` 取得當前可用的對話 ID。
    - `POST /assistant/chat/{chat_id}` 提交組裝好的風險分析問題 (Prompt)。
-   - **輪詢機制 (Polling Mechanism)**: 以非同步方式定期呼叫 `GET /assistant/chat/summary?chat_id={chat_id}&type=markdown`，直到取得最終報告或達最大超時限制。
+   - **輪詢機制 (Polling Mechanism) 與依賴注入 (Dependency Injection)**: 已將輪詢邏輯抽離為純函式，透過 `options` 參數動態注入 `baseUrl`, `headers`, 與 `fetchFn`。這使模組完全脫離對全域環境的依賴，支援無縫單元測試。非同步呼叫 `GET /assistant/chat/summary?chat_id={chat_id}&type=markdown`，直到取得最終報告或達最大超時限制。
 4. **渲染層 (Rendering Layer)**: 將取得的 Markdown 報告注入到 `api-dynamic-content` 區塊，並更新周圍 KPI 標籤狀態。
 
 ## 錯誤處理與邊界條件 (Error Handling & Edge Cases)
