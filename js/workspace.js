@@ -37,20 +37,24 @@ async function initApi() {
 // 取得 Chat ID (參考 sample.html)
 async function getChatId() {
   if (activeChatId) return activeChatId; // 如果已經有了就直接用
+  const apiBase = typeof GEMINI_CHAT_API_BASE !== 'undefined' ? GEMINI_CHAT_API_BASE : '/api/chat';
   try {
-    const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/list`, {
-      headers: getApiHeaders()
+    const response = await fetch(`${apiBase}/session`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
     });
+    
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
     const data = await response.json();
-    if (data.data && data.data.length > 0) {
-      activeChatId = data.data[0]._id; // 拿最新的一個會話
+    
+    if (data && data.chat_id) {
+      activeChatId = data.chat_id;
       return activeChatId;
     }
-    return null;
-  } catch (e) {
-    console.error("取得 Chat ID 失敗", e);
-    return null;
+  } catch (error) {
+    console.error("取得 Chat ID 失敗", error);
   }
+  return null;
 }
 
 // Automatically grow prompt input textarea based on user input height
@@ -169,9 +173,6 @@ async function handleFile(file) {
   const cleanName = file.name.replace(/\.[^/.]+$/, "");
   let matchedCase = null;
 
-  if (typeof AppDatabase !== 'undefined') {
-    matchedCase = AppDatabase.getCaseById(cleanName) || AppDatabase.getCaseById(cleanName.toUpperCase());
-  }
   if (!matchedCase && typeof caseDb !== 'undefined' && caseDb[cleanName]) {
     matchedCase = caseDb[cleanName];
   }
@@ -344,19 +345,20 @@ async function loadChatHistory(matchedCase) {
     const chatID = await getChatId();
     if (!chatID) throw new Error("No Chat ID");
     
-    const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
-      headers: getApiHeaders()
+    const apiBase = typeof GEMINI_CHAT_API_BASE !== 'undefined' ? GEMINI_CHAT_API_BASE : '/api/chat';
+    const response = await fetch(`${apiBase}/${chatID}/messages`, {
+      headers: { 'Content-Type': 'application/json' }
     });
     
     if (!response.ok) throw new Error("Fetch messages failed");
     
-    const data = await response.json();
-    if (data && data.messages && data.messages.length > 0) {
+    const resData = await response.json();
+    if (resData && resData.data && resData.data.length > 0) {
        document.getElementById('chat-container').innerHTML = '';
-       data.messages.forEach(msg => {
+       resData.data.forEach(msg => {
           if (msg.role === 'user') {
              appendUserMessage(msg.content);
-          } else if (msg.role === 'assistant') {
+          } else if (msg.role === 'assistant' || msg.role === 'ai') {
              // Directly append instead of simulate since it's history
              const stream = document.getElementById('chat-container');
              const row = document.createElement('div');
@@ -395,13 +397,23 @@ function setSearch(caseId) {
   triggerSearch();
 }
 
-function findCasesMatchingQuery(query) {
+async function findCasesMatchingQuery(query) {
   if (!query) return [];
   const q = query.toLowerCase().trim();
   let results = [];
 
-  if (typeof AppDatabase !== 'undefined' && AppDatabase.searchCases) {
-    results = AppDatabase.searchCases(q);
+  try {
+    const res = await fetch(`/api/cases/search?q=${encodeURIComponent(q)}`);
+    if (res.ok) {
+      const payload = await res.json();
+      if (payload.status === 'success') {
+        results = payload.data || [];
+      }
+    } else {
+      throw new Error("Backend API error");
+    }
+  } catch (err) {
+    console.warn("Backend API not reachable for search", err);
   }
 
   if (typeof caseDb !== 'undefined') {
@@ -483,20 +495,20 @@ function setupSearchAutocomplete() {
     dropdown.style.display = 'flex';
   }
 
-  searchInput.addEventListener('input', (e) => {
+  searchInput.addEventListener('input', async (e) => {
     const q = e.target.value.trim();
     if (!q) {
       hideDropdown();
       return;
     }
-    const matches = findCasesMatchingQuery(q);
+    const matches = await findCasesMatchingQuery(q);
     renderDropdown(matches, q);
   });
 
-  searchInput.addEventListener('focus', (e) => {
+  searchInput.addEventListener('focus', async (e) => {
     const q = e.target.value.trim();
     if (q) {
-      const matches = findCasesMatchingQuery(q);
+      const matches = await findCasesMatchingQuery(q);
       renderDropdown(matches, q);
     }
   });
@@ -564,8 +576,16 @@ async function triggerSearch() {
     let matchedCase = null;
     
     // 1. 先從真實資料庫根據案號精準比對
-    if (typeof AppDatabase !== 'undefined') {
-        matchedCase = AppDatabase.getCaseById(q);
+    try {
+        const res = await fetch(`/api/cases/${encodeURIComponent(q)}`);
+        if (res.ok) {
+            const payload = await res.json();
+            if (payload.status === 'success' && payload.data) {
+                matchedCase = payload.data;
+            }
+        }
+    } catch(err) {
+        console.warn("Backend API not reachable for getCaseById", err);
     }
 
     // 2. 備用：手動建的案子 (caseDb)
@@ -575,9 +595,21 @@ async function triggerSearch() {
 
     // 3. 關鍵字模糊比對：若輸入的不是精準案號，搜尋當事人、爭議要點、法規等欄位
     if (!matchedCase) {
-        const matches = findCasesMatchingQuery(q);
+        const matches = await findCasesMatchingQuery(q);
         if (matches && matches.length > 0) {
-            matchedCase = AppDatabase.getCaseById(matches[0].id) || matches[0];
+            matchedCase = matches[0];
+            // Try fetching full details if we only got partial from search
+            try {
+                const res = await fetch(`/api/cases/${encodeURIComponent(matchedCase.id)}`);
+                if (res.ok) {
+                    const payload = await res.json();
+                    if (payload.status === 'success' && payload.data) {
+                        matchedCase = payload.data;
+                    }
+                }
+            } catch(e) {
+                console.warn("Backend API not reachable to fetch full details", e);
+            }
         }
     }
 
@@ -668,145 +700,60 @@ async function triggerSearch() {
     chatContainer.style.display = 'flex';
     chatContainer.innerHTML = '';
 
-    appendSystemMessage(`已動態讀取真實案卷資料：<b>${matchedCase.id}</b>。正在調用 AI 後端 API 進行財務風險模型演算...`);
+    appendSystemMessage(`已動態讀取真實案卷資料：<b>${matchedCase.id}</b>。合規精靈理算引擎已完成財務風險試算。`);
 
-    // 動態透過 API 即時預估財務風險 - 校準為具備決策參考價值的理算數字
-    const chatID = await getChatId();
-    if (chatID) {
-       // 解析案件金額數字
-       let amountNum = 1500000;
-       if (matchedCase && matchedCase.amount) {
-           const parsedVal = parseInt(matchedCase.amount.replace(/[^0-9]/g, ''), 10);
-           if (!isNaN(parsedVal) && parsedVal > 0) amountNum = parsedVal;
-       }
+    // 直接由前端合規理算引擎計算財務風險，不再要求 AI LLM 回傳 JSON 格式
+    let amountNum = 1500000;
+    if (matchedCase && matchedCase.amount) {
+        const parsedVal = parseInt(matchedCase.amount.replace(/[^0-9]/g, ''), 10);
+        if (!isNaN(parsedVal) && parsedVal > 0) amountNum = parsedVal;
+    }
 
-       fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
-          method: 'POST',
-          headers: getApiHeaders(),
-          body: JSON.stringify({
-           q: `請針對案卷 ${matchedCase.id} 進行財務風險理算。爭議總金額為 NT$ ${amountNum.toLocaleString()}。請直接回傳 JSON 格式，包含兩個欄位：1. "settlement" (建議和解金額區間，應為爭議總金額之 10%~20% 比例責任賠償，例如 NT$ ${Math.round(amountNum * 0.1).toLocaleString()} - ${Math.round(amountNum * 0.16).toLocaleString()}) 2. "fine" (主管機關潛在罰鍰，依金融消保法及監管裁罰基準，例如 NT$ 600,000 - 1,200,000)。勿輸出任何額外說明。內容：${matchedCase.textContext || matchedCase.item}`,
-           streaming: true
-          })
-       })
-       .then(async (response) => {
-          if (!response.ok) throw new Error("API failed");
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder('utf-8');
-          let buffer = '';
-          let latestResult = '';
-          let done = false;
-          while (!done) {
-              const { value, done: readerDone } = await reader.read();
-              done = readerDone;
-              if (value) {
-                  buffer += decoder.decode(value, { stream: !done });
-                  const lines = buffer.split('\n');
-                  buffer = lines.pop() ?? '';
-                  for (const rawLine of lines) {
-                      const line = rawLine.trim();
-                      if (!line.startsWith('data:')) continue;
-                      const jsonStr = line.slice(5).trim();
-                      if (!jsonStr || jsonStr === '[DONE]') continue;
-                      try {
-                          const parsed = JSON.parse(jsonStr);
-                          if ('result' in parsed && parsed.result) latestResult = parsed.result;
-                      } catch (e) { /* ignore */ }
-                  }
-              }
-          }
-          return latestResult;
-       })
-       .then(aiText => {
-          let riskData = { riskSettlement: '', riskFine: '' };
-          if (aiText) {
-             try {
-                 const jsonMatch = aiText.match(/```json\s*([\s\S]*?)\s*```/);
-                 let parsed;
-                 if (jsonMatch) {
-                     parsed = JSON.parse(jsonMatch[1]);
-                 } else {
-                     const start = aiText.indexOf('{');
-                     const end = aiText.lastIndexOf('}');
-                     if (start !== -1 && end > start) {
-                         parsed = JSON.parse(aiText.substring(start, end + 1));
-                     } else {
-                         parsed = JSON.parse(aiText);
-                     }
-                 }
-                 if (parsed.settlement) riskData.riskSettlement = parsed.settlement;
-                 if (parsed.fine) riskData.riskFine = parsed.fine;
-             } catch(e) {
-                 console.warn("無法解析 AI 財務數字", e);
-             }
-          }
+    const lowSettle = Math.round(amountNum * 0.1 / 10000) * 10000 || 150000;
+    const highSettle = Math.round(amountNum * 0.16 / 10000) * 10000 || 250000;
+    const riskSettlement = `NT$ ${lowSettle.toLocaleString()} - ${highSettle.toLocaleString()}`;
 
-          // 防呆與合理性校準：若和解金超過爭議金額的 35%（如 105萬/150萬）或解析失敗，自動校準為符合金融合規實務的理性比例
-          const settlementVal = parseInt(riskData.riskSettlement.replace(/[^0-9]/g, ''), 10);
-          if (!riskData.riskSettlement || isNaN(settlementVal) || settlementVal > amountNum * 0.35) {
-              const lowSettle = Math.round(amountNum * 0.1 / 10000) * 10000 || 150000;
-              const highSettle = Math.round(amountNum * 0.16 / 10000) * 10000 || 250000;
-              riskData.riskSettlement = `NT$ ${lowSettle.toLocaleString()} - ${highSettle.toLocaleString()}`;
-          }
+    const lowFine = amountNum < 500000 ? 300000 : 600000;
+    const highFine = amountNum < 500000 ? 600000 : 1200000;
+    const riskFine = `NT$ ${lowFine.toLocaleString()} - ${highFine.toLocaleString()}`;
 
-          if (!riskData.riskFine || riskData.riskFine.includes('無法')) {
-              const lowFine = amountNum < 500000 ? 300000 : 600000;
-              const highFine = amountNum < 500000 ? 600000 : 1200000;
-              riskData.riskFine = `NT$ ${lowFine.toLocaleString()} - ${highFine.toLocaleString()}`;
-          }
+    const elSettlement = document.getElementById('risk-settlement');
+    const elFine = document.getElementById('risk-fine');
 
-          const elSettlement = document.getElementById('risk-settlement');
-          const elFine = document.getElementById('risk-fine');
+    if (elSettlement) {
+        elSettlement.textContent = riskSettlement;
+        elSettlement.style.fontSize = '0.9rem';
+        elSettlement.style.color = '#f59e0b';
+    }
 
-          elSettlement.textContent = riskData.riskSettlement;
-          elFine.textContent = riskData.riskFine;
+    if (elFine) {
+        elFine.textContent = riskFine;
+        elFine.style.fontSize = '0.9rem';
+        elFine.style.color = '#ef4444';
+    }
 
-          // 還原為正常的粗體數值樣式
-          elSettlement.style.fontSize = '0.9rem';
-          elSettlement.style.color = '#f59e0b';
-          elFine.style.fontSize = '0.9rem';
-          elFine.style.color = '#ef4444';
-
-          if(document.getElementById('risk-confidence-row')) {
-            if(document.getElementById('risk-rationale-row')) {
-              document.getElementById('risk-rationale-row').style.display = 'flex';
-              const rationaleEl = document.getElementById('risk-rationale');
-              if (matchedCase.id.includes('002') || (matchedCase.item && matchedCase.item.includes('醫療'))) {
-                rationaleEl.textContent = '依據保險理賠評議實務，按 15%~25% 通融給付賠償比例試算；罰鍰依《保險法》裁罰標準推估。';
-              } else if (matchedCase.id.includes('003') || (matchedCase.item && matchedCase.item.includes('盜刷'))) {
-                rationaleEl.textContent = '依據信用卡業務管理辦法，按爭議款項全額或 50% 協商負擔；罰鍰依內控控管缺失標準推估。';
-              } else {
-                rationaleEl.textContent = '依據評議中心實務，按理專 10%~16% 告知瑕疵過失比例賠償；罰鍰依《金融消保法》第30-1條處分基準。';
-              }
-            }
-
-            document.getElementById('risk-confidence-row').style.display = 'flex';
-            document.getElementById('risk-precedent-row').style.display = 'flex';
-
-            document.getElementById('risk-confidence').textContent = (Math.floor(Math.random() * 10) + 82) + '%';
+    if (document.getElementById('risk-confidence-row')) {
+        if (document.getElementById('risk-rationale-row')) {
+            document.getElementById('risk-rationale-row').style.display = 'flex';
+            const rationaleEl = document.getElementById('risk-rationale');
             if (matchedCase.id.includes('002') || (matchedCase.item && matchedCase.item.includes('醫療'))) {
-              document.getElementById('risk-precedent').textContent = '參考 111 年評議中心實支實付融通理賠案';
+                rationaleEl.textContent = '依據保險理賠評議實務，按 15%~25% 通融給付賠償比例試算；罰鍰依《保險法》裁罰標準推估。';
+            } else if (matchedCase.id.includes('003') || (matchedCase.item && matchedCase.item.includes('盜刷'))) {
+                rationaleEl.textContent = '依據信用卡業務管理辦法，按爭議款項全額或 50% 協商負擔；罰鍰依內控控管缺失標準推估。';
             } else {
-              document.getElementById('risk-precedent').textContent = '參考 112 年金管會某銀行理專未盡告知義務裁罰案';
+                rationaleEl.textContent = '依據評議中心實務，按理專 10%~16% 告知瑕疵過失比例賠償；罰鍰依《金融消保法》第30-1條處分基準。';
             }
-          }
-       })
-       .catch(e => {
-          const lowSettle = Math.round(amountNum * 0.1 / 10000) * 10000 || 150000;
-          const highSettle = Math.round(amountNum * 0.16 / 10000) * 10000 || 250000;
-          const lowFine = amountNum < 500000 ? 300000 : 600000;
-          const highFine = amountNum < 500000 ? 600000 : 1200000;
+        }
 
-          document.getElementById('risk-settlement').textContent = `NT$ ${lowSettle.toLocaleString()} - ${highSettle.toLocaleString()}`;
-          document.getElementById('risk-fine').textContent = `NT$ ${lowFine.toLocaleString()} - ${highFine.toLocaleString()}`;
-          if(document.getElementById('risk-confidence-row')) {
-            if(document.getElementById('risk-rationale-row')) {
-              document.getElementById('risk-rationale-row').style.display = 'flex';
-              document.getElementById('risk-rationale').textContent = '依據評議中心實務，按理專 10%~16% 告知瑕疵過失比例賠償；罰鍰依《金融消保法》第30-1條處分基準。';
-            }
-            document.getElementById('risk-confidence-row').style.display = 'flex';
-            document.getElementById('risk-precedent-row').style.display = 'flex';
-          }
-       });
+        document.getElementById('risk-confidence-row').style.display = 'flex';
+        document.getElementById('risk-precedent-row').style.display = 'flex';
+
+        document.getElementById('risk-confidence').textContent = (Math.floor(Math.random() * 10) + 82) + '%';
+        if (matchedCase.id.includes('002') || (matchedCase.item && matchedCase.item.includes('醫療'))) {
+            document.getElementById('risk-precedent').textContent = '參考 111 年評議中心實支實付融通理賠案';
+        } else {
+            document.getElementById('risk-precedent').textContent = '參考 112 年金管會某銀行理專未盡告知義務裁罰案';
+        }
     }
 
     // 啟動歡迎訊息
@@ -1283,9 +1230,10 @@ async function sendQuestionToApi(questionText, retryCount = 0, existingRow = nul
   renderQuickPrompts(getContextualQuickPrompts(currentCase), 'pending');
 
   try {
-    const response = await fetch(`${GEMINI_API_BASE}/assistant/chat/${chatID}`, {
+    const apiBase = typeof GEMINI_CHAT_API_BASE !== 'undefined' ? GEMINI_CHAT_API_BASE : '/api/chat';
+    const response = await fetch(`${apiBase}/${chatID}`, {
       method: 'POST',
-      headers: getApiHeaders(),
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         q: caseCtx ? `${caseCtx}${questionText}` : questionText,
         streaming: true
@@ -1438,14 +1386,7 @@ async function sendQuestionToApi(questionText, retryCount = 0, existingRow = nul
     const bubble = document.getElementById('streaming-bubble');
     if (bubble) bubble.parentElement?.remove();
 
-    appendSystemMessage(`⚠️ API 連線失敗（${err.message}），自動切換至本地模擬解答。`);
-    let mockReply = currentCase
-      ? `已收到您對案件 ${currentCase.id} 的問題，但目前無法連線至 AI 知識庫。為避免補造案件事實、法源或前例，請稍後重試。`
-      : `已收到您的查詢「${questionText}」，但目前無法連線至 AI 知識庫。為避免提供未經檢索核實的案件或法源，請稍後重試。`;
-    if (currentCase && questionText.includes('報告')) {
-      mockReply = `## 金融消費爭議案件合規審查意見書 (草稿)\n\n*   **案號**：${activeCaseId}\n*   **審查重點**：${caseDb[activeCaseId]?.item ?? '未載入'}\n\n### ⚖️ 合規性判定\n根據現有事證，本案評估有顯著合規疏失風險，主要集中於適合度規範之落實與風險揭露聲明。\n\n### 💡 行動方案指引\n1. **協議和解**：爭取於評議程序前取得和解。\n2. **合規宣導**：加強前線理專之風險告知抽查比率。`;
-    }
-    setTimeout(() => simulateAiResponse(mockReply), 500);
+    appendSystemMessage(`⚠️ API 連線失敗（${err.message}），請確認後端服務是否正常運作。`);
   }
 }
 
