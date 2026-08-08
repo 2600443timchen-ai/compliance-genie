@@ -47,19 +47,54 @@
     return `<div class="doc-brand"><strong>Compliance Genie 合規精靈</strong><span>CONFIDENTIAL · MANAGEMENT REVIEW</span></div><h1>${documentDefinition.title}</h1><div class="doc-subtitle">本文件為展示預覽，正式發送或執行前須經權責主管覆核</div><div class="doc-meta">${meta}</div>${documentDefinition.body}`;
   }
 
-  function openDocumentPreview(type) {
+  function escapeDocumentText(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  }
+
+  function renderGeneratedDocument(data) {
+    const metadata = Array.isArray(data.metadata) ? data.metadata : [];
+    const sections = Array.isArray(data.sections) ? data.sections : [];
+    const metaHtml = metadata.map(item => `<div><span>${escapeDocumentText(item.label)}</span><strong>${escapeDocumentText(item.value ?? '待補')}</strong></div>`).join('');
+    const sectionHtml = sections.map(section => {
+      const paragraphs = (Array.isArray(section.paragraphs) ? section.paragraphs : []).map(text => `<p>${escapeDocumentText(text)}</p>`).join('');
+      const items = (Array.isArray(section.items) ? section.items : []).map(text => `<li>${escapeDocumentText(text)}</li>`).join('');
+      const table = section.table && Array.isArray(section.table.headers) && section.table.headers.length
+        ? `<table><thead><tr>${section.table.headers.map(value => `<th>${escapeDocumentText(value)}</th>`).join('')}</tr></thead><tbody>${(section.table.rows || []).map(row => `<tr>${row.map(value => `<td>${escapeDocumentText(value)}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '';
+      return `<h2>${escapeDocumentText(section.title)}</h2>${paragraphs}${items ? `<ul>${items}</ul>` : ''}${table}`;
+    }).join('');
+    return `<div class="doc-brand"><strong>Compliance Genie 合規精靈</strong><span>CONFIDENTIAL · MANAGEMENT REVIEW</span></div><h1>${escapeDocumentText(data.title)}</h1><div class="doc-subtitle">${escapeDocumentText(data.review_notice || '正式發送或執行前須經權責主管覆核')}</div><div class="doc-meta">${metaHtml}</div>${sectionHtml}`;
+  }
+
+  async function openDocumentPreview(type) {
     ensureModal();
-    currentDocument = templates[type] || templates['case-report'];
-    document.getElementById('document-preview-type').textContent = currentDocument.type;
-    document.getElementById('document-preview-heading').textContent = currentDocument.title;
-    document.getElementById('document-page').innerHTML = renderDocument(currentDocument);
+    const labels = {'official-reply':'官方回覆草稿','internal-notice':'內部調查通報','case-report':'案件分析報告','management-report':'全局風險管理報告','approval-action':'治理措施核准單','investigation-order':'專案抽查工單'};
+    const title = labels[type] || labels['case-report'];
+    document.getElementById('document-preview-type').textContent = 'AI JSON DOCUMENT';
+    document.getElementById('document-preview-heading').textContent = title;
+    document.getElementById('document-page').textContent = '';
     const overlay = document.getElementById('document-preview-overlay');
     overlay.classList.add('open');
     overlay.setAttribute('aria-hidden','false');
     document.body.classList.add('document-preview-open');
     const loading = document.getElementById('document-loading');
     loading.style.display = 'grid';
-    setTimeout(() => { loading.style.display = 'none'; document.getElementById('document-preview-close').focus(); }, 520);
+    try {
+      const caseContext = typeof currentMatchedCase !== 'undefined' ? currentMatchedCase : null;
+      const dashboardContext = typeof dashboardPayload !== 'undefined' ? dashboardPayload : null;
+      const context = caseContext || dashboardContext;
+      if (!context) throw new Error('目前沒有已驗證的案件或 Dashboard 資料');
+      const requester = typeof askWorkspaceJson === 'function' ? askWorkspaceJson : askDashboardJson;
+      const payload = await requester(PROMPT_TEMPLATES.documentGeneration(type, context), 'document_generation');
+      if (payload.status !== 'success') throw new Error(formatAiWarnings(payload.warnings) || '文件資料不足');
+      currentDocument = {file:payload.data.file_name || title,generated:true};
+      document.getElementById('document-page').innerHTML = renderGeneratedDocument(payload.data);
+    } catch (error) {
+      currentDocument = null;
+      document.getElementById('document-page').textContent = `文件未產生：${error.message || error}。系統不會顯示固定範本或假資料。`;
+    } finally {
+      loading.style.display = 'none';
+      document.getElementById('document-preview-close').focus();
+    }
   }
 
   function closeDocumentPreview() {

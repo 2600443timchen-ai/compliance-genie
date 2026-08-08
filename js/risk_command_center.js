@@ -1,13 +1,15 @@
 // Vision Pitch Version of Risk Command Center
 const $ = id => document.getElementById(id);
 
-const benchmarkState = {mode: 'snapshot', source: null, item: null};
 let activeInsight = null;
 let activeInsightTarget = null;
 let insightPinned = false;
 let insightHideTimer = null;
 let dashboardChatId = null;
 let dashboardChatTitle = '';
+let dashboardPayload = null;
+let dashboardRequestSerial = 0;
+let insightControlsBound = false;
 
 function setDashboardApiStatus(state, title, detail) {
   const status = document.querySelector('.data-status');
@@ -27,88 +29,211 @@ async function loadDashboardChatSession() {
   return payload;
 }
 
-function formatSourceDate(value) {
-  const text = String(value || '');
-  return /^\d{8}$/.test(text) ? `${text.slice(0, 4)}/${text.slice(4, 6)}/${text.slice(6)}` : text;
-}
-
-function normalizeLiveSource(snapshot, rows) {
-  if (!Array.isArray(rows) || !rows.length) throw new Error('來源沒有可用資料列');
-  const dispute = Object.prototype.hasOwnProperty.call(rows[0], '合計');
-  const countColumn = dispute ? '合計' : (Object.prototype.hasOwnProperty.call(rows[0], '申請評議件數') ? '申請評議件數' : '申訴件數');
-  const ratioColumn = Object.keys(rows[0]).find(key => /案件比率|申請評議比率|申訴率/.test(key));
-  const nameColumn = dispute ? '爭議類型' : '爭議對象';
-  const number = value => Number(String(value || '0').replace(/,/g, '')) || 0;
-  const items = rows.map(row => ({
-    name: row[nameColumn],
-    complaints: dispute ? number(row['申訴件數']) : number(row[countColumn]),
-    mediation: dispute ? number(row['評議件數']) : null,
-    total: number(row[countColumn]),
-    ratio: row[ratioColumn] || '—'
-  })).filter(item => item.name).sort((a, b) => b.total - a.total).slice(0, 5);
-  if (!items.length) throw new Error('來源欄位不符合預期');
-  return {...snapshot, rows: rows.length, start: rows[0]['日期(起)'], end: rows[0]['日期(迄)'], kind: dispute ? 'dispute' : 'company', items};
-}
-
-async function fetchLiveSource(snapshot) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 16000);
-  try {
-    const response = await fetch(`/api/analytics/sources/${encodeURIComponent(snapshot.id)}`, {
-      headers: {Accept: 'application/json'},
-      signal: controller.signal
-    });
-    if (!response.ok) throw new Error(`Dashboard API ${response.status}`);
-    const payload = await response.json();
-    if (payload.status !== 'ok' || payload.mode !== 'live' || payload.source_id !== snapshot.id || !Array.isArray(payload.rows)) {
-      throw new Error('後端回應未通過資料契約驗證');
-    }
-    return {...normalizeLiveSource(snapshot, payload.rows), fetchedAt: payload.fetched_at, cache: payload.cache};
-  } finally {
-    clearTimeout(timer);
+async function askDashboardJson(prompt, expectedFeature) {
+  if (!dashboardChatId) await loadDashboardChatSession();
+  const response = await fetch(`/api/chat/${encodeURIComponent(dashboardChatId)}`, {
+    method: 'POST',
+    headers: {'Accept':'text/event-stream','Content-Type':'application/json'},
+    body: JSON.stringify({q: prompt, streaming: true, expected_feature: expectedFeature})
+  });
+  if (!response.ok) {
+    let detail = `HTTP ${response.status}`;
+    try { detail = (await response.json()).message || detail; } catch (_) { /* no JSON error */ }
+    throw new Error(detail);
   }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  let result = '';
+  while (true) {
+    const chunk = await reader.read();
+    if (chunk.value) buffer += decoder.decode(chunk.value, {stream: !chunk.done});
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() || '';
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line.startsWith('data:')) continue;
+      const eventText = line.slice(5).trim();
+      if (!eventText || eventText === '[DONE]') continue;
+      try {
+        const event = JSON.parse(eventText);
+        if (typeof event.result === 'string') result = event.result;
+      } catch (_) { /* malformed SSE event is ignored; final JSON is still validated */ }
+    }
+    if (chunk.done) break;
+  }
+  return parseAndValidateAiJson(result, expectedFeature);
 }
 
-function snapshotItems(source) {
-  return source.items.map(item => Array.isArray(item) ? ({name:item[0], complaints:item[1], mediation:item[2], total:item[3], ratio:item[4]}) : item);
+function formatMoneyRange(value) {
+  if (!value || !Number.isFinite(Number(value.min)) || !Number.isFinite(Number(value.max))) return '—';
+  const currency = value.currency === 'TWD' ? 'NT$' : (value.currency || '');
+  const min = Number(value.min);
+  const max = Number(value.max);
+  const amount = min === max
+    ? min.toLocaleString('zh-TW')
+    : `${min.toLocaleString('zh-TW')}–${max.toLocaleString('zh-TW')}`;
+  return `${currency} ${amount}`.trim();
+}
+
+function setText(selector, value) {
+  const element = document.querySelector(selector);
+  if (element) element.textContent = value === null || value === undefined || value === '' ? '—' : String(value);
+}
+
+function clearDashboardValues({preserveBenchmark = false} = {}) {
+  setText('.risk-ring strong', '—');
+  setText('.risk-index-copy strong', '載入中');
+  setText('.risk-index-copy p', '正在非同步查詢並驗證資料…');
+  ['.kpi-alert strong','.kpi-exposure strong','.kpi-sla strong','.kpi-reg strong'].forEach(selector => setText(selector, '—'));
+  ['.kpi-alert small','.kpi-exposure small','.kpi-sla small','.kpi-reg small'].forEach(selector => setText(selector, '載入中…'));
+  setText('.brief-lead', '正在取得重大風險訊號…');
+  setText('.chart-labels strong', '—');
+  setText('.priority-header h2', '載入中…');
+  document.querySelectorAll('.evidence-list dd').forEach(element => {
+    const nestedValue = element.querySelector('#benchmark-value');
+    if (nestedValue) {
+      if (!preserveBenchmark) nestedValue.textContent = '載入中…';
+    }
+    else element.textContent = '—';
+  });
+  document.querySelectorAll('.bar-set i').forEach(bar => { bar.style.height = '0%'; });
+  const rankingList = document.querySelector('.source-ranking-list');
+  if (rankingList) rankingList.textContent = '正在取得正式來源排行…';
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+}
+
+function warningText(warnings) {
+  return (Array.isArray(warnings) ? warnings : [])
+    .map(item => typeof item === 'string' ? item : (item?.message || item?.code || JSON.stringify(item)))
+    .filter(Boolean)
+    .join('；');
+}
+
+function renderDashboardCollections(data) {
+  setText('.priority-header h2', data.primary_signal?.title);
+  const evidence = document.querySelectorAll('.evidence-list dd');
+  if (evidence[0]) evidence[0].textContent = data.primary_signal?.industry || '—';
+  if (evidence[1]) evidence[1].textContent = '外部彙總資料不能推論內部成因';
+  if (evidence[2]) evidence[2].textContent = '不適用';
+
+  const rankedItems = [
+    ...(Array.isArray(data.top_disputes) ? data.top_disputes.slice(0, 3).map(item => ({...item, kind:'爭議分類'})) : []),
+    ...(Array.isArray(data.company_benchmarks) ? data.company_benchmarks.slice(0, 2).map(item => ({...item, kind:item.metric || '機構統計'})) : [])
+  ];
+  setText('.source-ranking-panel .tag-warning', `${rankedItems.length} 項`);
+  const rankingList = document.querySelector('.source-ranking-list');
+  if (rankingList) {
+    rankingList.innerHTML = rankedItems.length ? rankedItems.map((item, index) => {
+      const insightId = `source-ranking-${index}`;
+      INSIGHT_DEFINITIONS[insightId] = {
+        kicker:'VERIFIED SOURCE ITEM',
+        title:`${item.industry || '未分類'}－${item.name || '未命名'}`,
+        metric:`${Number(item.total || 0).toLocaleString('zh-TW')} 件`,
+        cause:`依正式來源的「${item.kind}」欄位排序，未加入模型估算。`,
+        evidence:`Source ${item.source_id || '未提供'}${item.ratio ? `；來源比率 ${item.ratio}` : ''}`,
+        action:'可作為外部產業比較與檢索入口；不得直接視為本公司內部風險。'
+      };
+      return `<article class="insight-target source-ranking-item" data-insight="${insightId}" tabindex="0"><div class="approval-top"><span class="action-meta">${escapeHtml(item.kind)}</span><span>${escapeHtml(item.industry || '未分類')}</span></div><h3>${escapeHtml(item.name || '未命名')}</h3><div class="owner-row"><span>Source ${escapeHtml(item.source_id || '未提供')}</span><strong>${Number(item.total || 0).toLocaleString('zh-TW')} 件</strong></div></article>`;
+    }).join('') : '正式來源沒有可排名資料。';
+  }
+
+  setText('.drilldown-head h2', data.primary_signal?.title);
+  setText('.drilldown-head p', data.primary_signal?.summary);
+  const flow = document.querySelectorAll('.drilldown-flow article');
+  if (flow[0]) { flow[0].querySelector('strong').textContent = data.primary_signal?.category || '—'; flow[0].querySelector('small').textContent = data.primary_signal?.source_id || '—'; }
+  if (flow[1]) { flow[1].querySelector('strong').textContent = data.primary_signal?.industry || '—'; flow[1].querySelector('small').textContent = '外部產業範圍'; }
+  if (flow[2]) { flow[2].querySelector('strong').textContent = '未連接'; flow[2].querySelector('small').textContent = '需要內部逐案資料'; }
+  if (flow[3]) { flow[3].querySelector('strong').textContent = '未連接'; flow[3].querySelector('small').textContent = '需要治理台帳'; }
+  initInsightInteractions();
+}
+
+function renderDashboardOverview(payload) {
+  if (payload.feature !== 'dashboard_source_overview' || !['success','partial'].includes(payload.status)) throw new Error('Dashboard 回應契約不符');
+  if (!payload.data || typeof payload.data !== 'object') throw new Error('Dashboard 回應缺少 data');
+  const data = payload.data;
+  const summary = data.summary || {};
+  const kpis = data.kpis || {};
+  const total = kpis.external_total || {};
+  const coverage = kpis.source_coverage || {};
+  const highRisk = kpis.new_high_risk_events || {};
+  const exposure = kpis.financial_exposure || {};
+  setText('.risk-ring strong', coverage.loaded);
+  setText('.risk-index-copy strong', summary.label);
+  setText('.risk-index-copy p', summary.primary_driver);
+  setText('.kpi-alert strong', Number.isFinite(Number(highRisk.value)) ? Number(highRisk.value).toLocaleString('zh-TW') : '—');
+  setText('.kpi-alert small', Number.isFinite(Number(highRisk.threshold)) ? `Q3 門檻 NT$ ${Math.round(Number(highRisk.threshold)).toLocaleString('zh-TW')} 以上` : '案件金額資料不足');
+  setText('.kpi-exposure strong', formatMoneyRange(exposure));
+  setText('.kpi-exposure small', `${exposure.case_count || 0} 筆已揭露金額案件加總`);
+  setText('.kpi-sla strong', '尚未連接');
+  setText('.kpi-sla small', '需要內部案件管理系統的 SLA 時鐘資料');
+  setText('.brief-lead', data.primary_signal?.summary);
+  const sources = Array.isArray(payload.sources) ? payload.sources : [];
+  setText('.priority-brief > .source-note > span', `資料來源：Gemini Data Source API（${sources.length} 個）`);
+  const topDisputes = Array.isArray(data.top_disputes) ? data.top_disputes.slice(0, 4) : [];
+  const benchmark = topDisputes.find(item => item.industry === '人壽保險') || topDisputes[0] || null;
+  setText('#benchmark-value', benchmark
+    ? `${benchmark.industry}－${benchmark.name} ${Number(benchmark.total || 0).toLocaleString('zh-TW')} 件${benchmark.ratio ? ` · ${benchmark.ratio}` : ''}`
+    : '正式來源未提供外部基準');
+  const trendValues = topDisputes.map(item => Number(item.total)).filter(Number.isFinite);
+  setText('.chart-labels strong', topDisputes.length ? `TOP ${topDisputes.length}` : '—');
+  setText('.chart-labels span', '外部爭議分類件數');
+  const bars = document.querySelectorAll('.bar-set i');
+  if (bars.length && trendValues.length) {
+    const max = Math.max(...trendValues, 1);
+    bars.forEach((bar, index) => { bar.style.height = trendValues[index] === undefined ? '0%' : `${Math.max(4, trendValues[index] / max * 100)}%`; });
+  }
+  document.querySelectorAll('.week-labels span').forEach((label, index) => { label.textContent = topDisputes[index]?.industry || '—'; });
+  setText('.hero-proof span:nth-of-type(1) b', sources.length);
+  setText('.hero-proof span:nth-of-type(2) b', Number(total.value || 0).toLocaleString('zh-TW'));
+  setText('.hero-proof span:nth-of-type(3) b', payload.cache_status === 'last_known_good' ? '快取' : '即時');
+  if (typeof INSIGHT_DEFINITIONS !== 'undefined') {
+    INSIGHT_DEFINITIONS.events = {kicker:'HIGH-RISK EVENTS (Q3)',title:'新增高風險事件',metric:Number.isFinite(Number(highRisk.value)) ? Number(highRisk.value).toLocaleString('zh-TW') : '—',cause:'依案件資料庫已揭露金額計算 Q3（上四分位數）門檻，金額達門檻以上的案件計為高風險事件。',evidence:`樣本 ${highRisk.sample_size || 0} 筆案件，其中 ${highRisk.amount_count || 0} 筆有揭露金額；門檻 NT$ ${Number.isFinite(Number(highRisk.threshold)) ? Math.round(Number(highRisk.threshold)).toLocaleString('zh-TW') : '—'}。`,action:'門檻採統計上的離群值判斷法（Q3），不是正式風險分級；如需業務分級標準，需另訂規則。'};
+    INSIGHT_DEFINITIONS.exposure = {kicker:'DISCLOSED CASE AMOUNTS',title:'潛在財務曝險',metric:formatMoneyRange(exposure),cause:'案件資料庫中已揭露涉案金額的直接加總，屬確定性運算，不是 AI 估算的和解或罰鍰金額。',evidence:`${exposure.case_count || 0} 筆案件有揭露金額。`,action:'此數字只代表已知爭議金額總和；實際財務曝險需再納入理賠、和解折讓等因素。'};
+    INSIGHT_DEFINITIONS.sla = {kicker:'NOT CONNECTED',title:'SLA 逾期風險',metric:'尚未連接',cause:'需要內部案件管理／工單系統的處理期限與承辦人資料，目前沒有任何已連接來源提供期限欄位。',evidence:'外部申訴/評議統計與案件資料庫均未包含 SLA 或期限資訊。',action:'需先串接內部案件管理系統才能計算此指標，目前誠實留白，不使用估算值填補。'};
+    INSIGHT_DEFINITIONS.regulatory = {kicker:'REGULATORY GAP SCAN', title:'待完成法規缺口', metric:'分析中', cause:'正在對隨機抽樣的案件進行 AI 缺口分析…', evidence:'請稍候。', action:'完成後會標示為抽樣估算，並附上案號明細。'};
+    INSIGHT_DEFINITIONS.signal = {kicker:'TOP EXTERNAL CATEGORY',title:data.primary_signal?.title || '—',metric:topDisputes[0] ? `${Number(topDisputes[0].total).toLocaleString('zh-TW')} 件` : '—',cause:'依外部爭議分類合計件數排序。',evidence:data.primary_signal?.source_id || '來源未提供',action:'僅作產業訊號，不直接推論本公司成因或違規。'};
+    INSIGHT_DEFINITIONS.benchmark = benchmark
+      ? {kicker:'EXTERNAL BENCHMARK',title:`${benchmark.industry}－${benchmark.name}`,metric:`${Number(benchmark.total || 0).toLocaleString('zh-TW')} 件`,cause:'直接取自 Dashboard 正式來源聚合結果。',evidence:`Source ${benchmark.source_id || '未提供'}${benchmark.ratio ? `；來源比率 ${benchmark.ratio}` : ''}`,action:'只作外部產業比較，不代表本公司案件量。'}
+      : {kicker:'EXTERNAL BENCHMARK',title:'外部產業基準',metric:'—',cause:'正式來源未提供可顯示項目。',evidence:'無',action:'不提供推論。'};
+  }
+  renderDashboardCollections(data);
+}
+
+async function loadDashboardOverview(period) {
+  const serial = ++dashboardRequestSerial;
+  clearDashboardValues({preserveBenchmark:true});
+  setDashboardApiStatus('loading', '正在查詢 Dashboard', '正式 Source 聚合與契約驗證中…');
+  const response = await fetch(`/api/dashboard/overview?period=${encodeURIComponent(period)}`, {headers:{Accept:'application/json'}});
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.toLowerCase().includes('application/json')) {
+    const bodyPreview = (await response.text()).replace(/\s+/g, ' ').slice(0, 80);
+    throw new Error(`Dashboard API ${response.status} 回傳 ${contentType || '未知格式'}；後端版本可能過舊，請完整停止後重新啟動。${bodyPreview ? ` 回應：${bodyPreview}` : ''}`);
+  }
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || `Dashboard API ${response.status}`);
+  if (serial !== dashboardRequestSerial) return;
+  renderDashboardOverview(payload);
+  dashboardPayload = payload;
+  const time = payload.as_of || new Date().toISOString();
+  if (payload.status === 'success' && payload.cache_status === 'live') {
+    setDashboardApiStatus('ready', 'Dashboard 資料已驗證', `${time} · Gemini Data Source API`);
+  } else {
+    setDashboardApiStatus('partial', payload.cache_status === 'last_known_good' ? '顯示最近成功資料' : '部分正式來源可用', warningText(payload.warnings));
+  }
 }
 
 const INSIGHT_DEFINITIONS = {
-  events: {kicker:'RISK SIGNAL', title:'新增高風險事件', metric:'12 件 · 較前 14 天 +35%', cause:'投資型保單爭議集中於高齡客群，且適合度評估與風險說明紀錄同時缺漏，使事件被提升為高風險。', evidence:'31 → 42 件；65 歲以上占 82%；8 個分行、17 位理專受影響。', action:'48 小時內先提高 8 個異常分行的主管覆核層級，再抽查 KYC 與通聯紀錄。'},
-  exposure: {kicker:'FINANCIAL EXPOSURE', title:'潛在財務曝險', metric:'NT$ 680–1,020 萬', cause:'27 件高風險案件依爭議金額、責任比例與可能裁罰情境形成區間估算，不代表確定罰鍰。', evidence:'其中 3 件 SIGNAL 01 關聯案件曝險約 155–265 萬；整體估算信心 76%。', action:'優先核對金額最高且期限最近的案件，再由法遵覆核責任比例與裁罰依據。'},
-  sla: {kicker:'SERVICE LEVEL', title:'SLA 逾期風險', metric:'27 件 · 3 件須於 48 小時內介入', cause:'信用卡部平均處理時間拉長至 28 天，加上高風險案件文件補正反覆，形成期限壓力。', evidence:'信用卡部達標率 64%；財富管理處 95%；3 件關聯案件剩餘 2、4、7 天。', action:'今日指定案件負責人與升級門檻，先處理剩餘 2 天的 C001-INV。'},
-  regulatory: {kicker:'REGULATORY GAP', title:'待完成法規缺口', metric:'4 項 · 最近期限 14 天', cause:'公平待客與高齡客戶錄音覆核流程尚未完成內控文件、系統規則與教育訓練同步。', evidence:'公平待客作業調整完成度 68%；實質受益人機制完成度 92%。', action:'本週核准流程責任人及驗收證據，避免只完成制度文件而未落實系統控制。'},
-  signal: {kicker:'SIGNAL 01', title:'投資型保單 × 高齡客群', metric:'42 件 · 近 14 天 +35%', cause:'風險並非只由件數上升造成，而是高齡集中度、KYC 缺漏與錄音證據不足同時出現。', evidence:'65 歲以上占 82%；8 個分行；17 位理專；判定信心 82%。', action:'先針對異常分行提高銷售覆核層級，不直接全面停售；7 天內完成專案抽查。'},
-  benchmark: {kicker:'EXTERNAL BENCHMARK', title:'人壽保險業外部基準', metric:'載入中', cause:'外部統計用來確認招攬類爭議是否具產業普遍性，但不能直接證明本公司案件成因。', evidence:'Gemini Data 正式 Source API／已驗證快照。', action:'將外部占比與本公司同口徑指標比較；確認顯著偏離後再決定是否擴大抽查。'},
-  'wealth-sla': {kicker:'DEPARTMENT SLA', title:'財富管理處', metric:'142 件 · 12 天 · 95%', cause:'整體達標率良好，但 SIGNAL 01 集中於此部門，使少數高風險案件需要額外覆核。', evidence:'8 個異常分行、17 位理專；3 件高風險關聯案件。', action:'維持既有 SLA，同時為高齡與投資型保單案件加上第二層覆核。'},
-  'consumer-sla': {kicker:'DEPARTMENT SLA', title:'消費金融處', metric:'89 件 · 18 天 · 82%', cause:'文件補正與跨單位確認拉長處理時間，但尚未進入立即介入門檻。', evidence:'達標率比財富管理處低 13 個百分點。', action:'檢查補正次數最高的案件類型，設定一次性補件清單。'},
-  'card-sla': {kicker:'DEPARTMENT SLA', title:'信用卡部', metric:'215 件 · 28 天 · 64%', cause:'案件量最高，且消費款與催收爭議需要跨系統調閱，造成平均處理時間上升。', evidence:'達標率為三部門最低；另有 C142-CRD 僅剩 3 天。', action:'今日建立紅色案件清單並安排每日主管覆核，先排除可快速補證的案件。'},
-  'case-c001': {kicker:'CASE DRILL', title:'C001-INV · 適合度評估', metric:'剩 2 天 · 曝險 90–150 萬', cause:'KYC 風險屬性與商品風險等級的對應證據不足，且客戶屬高齡族群。', evidence:'SIGNAL 01 主要案件；負責人林專員。', action:'24 小時內補齊 KYC、銷售錄音與主管覆核紀錄，逾時即升級法遵主管。'},
-  'case-c077': {kicker:'CASE DRILL', title:'C077-INV · 高齡客群揭露', metric:'剩 4 天 · 曝險 40–70 萬', cause:'高齡客戶的風險揭露與理解確認紀錄不足。', evidence:'SIGNAL 01 關聯案件；負責人李襄理。', action:'補做錄音逐字稿抽查，確認關鍵風險是否以可理解方式說明。'},
-  'case-c104': {kicker:'CASE DRILL', title:'C104-INV · KYC 文件缺漏', metric:'剩 7 天 · 曝險 25–45 萬', cause:'關鍵 KYC 欄位或版本留存不完整，無法還原銷售當時判斷。', evidence:'SIGNAL 01 關聯案件；負責人王專員。', action:'比對 CRM、紙本掃描與簽核紀錄，確認是資料遺失或流程未執行。'},
-  'case-c142': {kicker:'CASE DRILL', title:'C142-CRD · 不當催收', metric:'剩 3 天 · 曝險 45–75 萬', cause:'催收通聯內容與聯繫時段需要人工覆核，且案件已接近處理期限。', evidence:'信用卡部案件；負責人陳副理。', action:'立即封存通聯證據並由法遵抽聽，確認是否觸及不當催收紅線。'},
-  'case-c088': {kicker:'CASE DRILL', title:'C088-INS · 風險說明', metric:'剩 5 天 · 曝險 20–40 萬', cause:'商品風險說明與客戶理解確認的證據完整度不足。', evidence:'保險爭議案件；負責人張專員。', action:'先核對要保文件與錄音時間軸，再決定是否需要客戶補充訪談。'}
+  events: {kicker:'EXTERNAL COMPLAINTS', title:'外部申訴件數', metric:'載入中', cause:'等待正式 Source 聚合結果。', evidence:'尚未取得資料。', action:'載入完成前不提供推論。'},
+  exposure: {kicker:'EXTERNAL MEDIATIONS', title:'外部評議件數', metric:'載入中', cause:'等待正式 Source 聚合結果。', evidence:'尚未取得資料。', action:'不以外部件數推算內部財務曝險。'},
+  sla: {kicker:'EXTERNAL TOTAL', title:'申訴與評議合計', metric:'載入中', cause:'等待正式 Source 聚合結果。', evidence:'尚未取得資料。', action:'不以外部統計推算內部 SLA。'},
+  regulatory: {kicker:'SOURCE COVERAGE', title:'正式來源覆蓋率', metric:'載入中', cause:'等待來源健康狀態。', evidence:'尚未取得資料。', action:'單一來源失敗不應清空其他資料。'},
+  signal: {kicker:'TOP EXTERNAL CATEGORY', title:'外部主要爭議分類', metric:'載入中', cause:'等待正式 Source 排序結果。', evidence:'尚未取得資料。', action:'外部分類不能直接證明內部成因。'},
+  benchmark: {kicker:'EXTERNAL BENCHMARK', title:'人壽保險業外部基準', metric:'載入中', cause:'等待正式 Source 資料。', evidence:'尚未取得資料。', action:'只作外部產業比較。'}
 };
-
-async function loadExternalBenchmark() {
-  const snapshot = window.ANALYTICAL_SOURCE_SNAPSHOTS?.find(source => source.id === '6a59d1880904f50013826d6e');
-  if (!snapshot) return;
-  let source = snapshot;
-  try {
-    source = await fetchLiveSource(snapshot);
-    benchmarkState.mode = 'live';
-  } catch (error) {
-    benchmarkState.mode = 'snapshot';
-  }
-  const item = snapshotItems(source).find(entry => entry.name === '業務招攬爭議') || snapshotItems(source)[0];
-  benchmarkState.source = source;
-  benchmarkState.item = item;
-  const sourceLabel = benchmarkState.mode === 'live' ? 'Gemini Data API 即時' : '已驗證快照';
-  $('benchmark-value').textContent = `業務招攬爭議 ${item.total} 件 · 占 ${item.ratio} (${sourceLabel})`;
-  INSIGHT_DEFINITIONS.benchmark.metric = `${item.total} 件 · 占 ${item.ratio}`;
-  INSIGHT_DEFINITIONS.benchmark.evidence = `${item.complaints} 件申訴 + ${item.mediation} 件評議；${formatSourceDate(source.start)}–${formatSourceDate(source.end)}；Source ${source.id}；${benchmarkState.mode === 'live' ? '正式 API 即時取得' : '已驗證快照'}。`;
-  return {mode: benchmarkState.mode, source};
-}
 
 function positionInsightPopover(target) {
   if (!target) return;
@@ -131,125 +256,22 @@ function positionInsightPopover(target) {
 
 let insightEnterTimer = null;
 
-const PERIOD_DATA = {
-  '近 14 天': {
-    riskIndex: '78',
-    riskStatus: '風險升溫',
-    riskNote: '投資型保單訊號推升 12 點',
-    avoidance: 'NT$ 520–760 萬',
-    avoidanceNote: '若 2 項治理措施如期完成 · 信心 76%',
-    events: '12',
-    eventsTrend: '↑ 較前 14 天 +35%',
-    exposure: 'NT$ 680–1,020 萬',
-    exposureNote: '27 件高風險案件估算',
-    sla: '27 件',
-    slaNote: '3 件需於 48 小時內介入',
-    reg: '4 項',
-    regNote: '最近期限：14 天',
-    briefLead: '近 14 天相關爭議由 31 件上升至 42 件，其中 65 歲以上客戶占 82%；主要集中於適合度評估與風險說明紀錄。',
-    chartTrend: '+35%',
-    bars: ['38%', '48%', '62%', '84%']
-  },
-  '本月': {
-    riskIndex: '84',
-    riskStatus: '警戒狀態',
-    riskNote: '客訴與評議案件持續累積',
-    avoidance: 'NT$ 1,280–1,850 萬',
-    avoidanceNote: '若 4 項治理措施如期完成 · 信心 82%',
-    events: '28',
-    eventsTrend: '↑ 較上月 +48%',
-    exposure: 'NT$ 1,450–2,100 萬',
-    exposureNote: '42 件高風險案件估算',
-    sla: '38 件',
-    slaNote: '7 件需於 48 小時內介入',
-    reg: '6 項',
-    regNote: '最近期限：8 天',
-    briefLead: '本月相關爭議累計達 78 件，其中高齡客戶投訴佔比持續攀升至 86%；已觸發全面合規稽核。',
-    chartTrend: '+48%',
-    bars: ['25%', '42%', '70%', '95%']
-  },
-  '本季': {
-    riskIndex: '71',
-    riskStatus: '中度受控',
-    riskNote: '季末避險措施開始發揮成效',
-    avoidance: 'NT$ 3,400–4,200 萬',
-    avoidanceNote: '累積完成 8 項治理措施 · 信心 88%',
-    events: '65',
-    eventsTrend: '↓ 較上季 -15%',
-    exposure: 'NT$ 2,200–3,100 萬',
-    exposureNote: '89 件歷史案件回溯',
-    sla: '19 件',
-    slaNote: '1 件需於 48 小時內介入',
-    reg: '2 項',
-    regNote: '最近期限：28 天',
-    briefLead: '本季累計處理 185 件爭議案件，高齡投資型保單案件在實施冷卻期後顯著下降 15%。',
-    chartTrend: '-15%',
-    bars: ['85%', '65%', '45%', '30%']
+async function handlePeriodChange(val) {
+  try {
+    await loadDashboardOverview(val);
+  } catch (error) {
+    dashboardPayload = null;
+    clearDashboardValues({preserveBenchmark:true});
+    setDashboardApiStatus('error', 'Dashboard 資料無法使用', error.message || String(error));
+    toast(`Dashboard 載入失敗：${error.message || error}`);
   }
-};
-
-function handlePeriodChange(val) {
-  toast(`已切換觀察期間至「${val}」`);
-  const data = PERIOD_DATA[val] || PERIOD_DATA['近 14 天'];
-
-  const riskScore = document.querySelector('.risk-ring strong');
-  if (riskScore) riskScore.textContent = data.riskIndex;
-  const riskStatus = document.querySelector('.risk-index-copy strong');
-  if (riskStatus) riskStatus.textContent = data.riskStatus;
-  const riskNote = document.querySelector('.risk-index-copy p');
-  if (riskNote) riskNote.textContent = data.riskNote;
-
-  const avoidVal = document.querySelector('.avoidance-value strong');
-  if (avoidVal) avoidVal.textContent = data.avoidance;
-  const avoidNote = document.querySelector('.avoidance-value small');
-  if (avoidNote) avoidNote.textContent = data.avoidanceNote;
-
-  const kpiAlert = document.querySelector('.kpi-alert strong');
-  if (kpiAlert) kpiAlert.textContent = data.events;
-  const kpiAlertTrend = document.querySelector('.kpi-alert small');
-  if (kpiAlertTrend) kpiAlertTrend.textContent = data.eventsTrend;
-
-  const kpiExposure = document.querySelector('.kpi-exposure strong');
-  if (kpiExposure) kpiExposure.textContent = data.exposure;
-  const kpiExposureNote = document.querySelector('.kpi-exposure small');
-  if (kpiExposureNote) kpiExposureNote.textContent = data.exposureNote;
-
-  const kpiSla = document.querySelector('.kpi-sla strong');
-  if (kpiSla) kpiSla.textContent = data.sla;
-  const kpiSlaNote = document.querySelector('.kpi-sla small');
-  if (kpiSlaNote) kpiSlaNote.textContent = data.slaNote;
-
-  const kpiReg = document.querySelector('.kpi-reg strong');
-  if (kpiReg) kpiReg.textContent = data.reg;
-  const kpiRegNote = document.querySelector('.kpi-reg small');
-  if (kpiRegNote) kpiRegNote.textContent = data.regNote;
-
-  const briefLead = document.querySelector('.brief-lead');
-  if (briefLead) briefLead.textContent = data.briefLead;
-
-  const chartTrend = document.querySelector('.chart-labels strong');
-  if (chartTrend) chartTrend.textContent = data.chartTrend;
-
-  const bars = document.querySelectorAll('.bar-set i');
-  if (bars && bars.length === 4) {
-    bars.forEach((bar, index) => {
-      bar.style.height = data.bars[index];
-    });
-  }
-
-  const animatedElements = document.querySelectorAll('.risk-index-card, .executive-kpis, .priority-brief');
-  animatedElements.forEach(el => {
-    el.style.opacity = '0.6';
-    el.style.transition = 'opacity 0.18s ease';
-    setTimeout(() => { el.style.opacity = '1'; }, 180);
-  });
 }
 
 function showInsight(target, pin = false) {
-  const insight = INSIGHT_DEFINITIONS[target.dataset.insight];
-  if (!insight) return;
+  const targetId = target.dataset.insight;
+  const insight = INSIGHT_DEFINITIONS[targetId] || null;
   clearTimeout(insightHideTimer);
-  activeInsight = insight;
+  activeInsight = insight || {kicker:'LIVE ANALYSIS',title:target.textContent.trim(),metric:'載入中…',cause:'正在查詢後端資料…',evidence:'回應完成後將執行 JSON 契約驗證。',action:'請稍候。'};
   activeInsightTarget = target;
   insightPinned = pin || insightPinned;
   $('insight-kicker').textContent = insight.kicker;
@@ -263,6 +285,11 @@ function showInsight(target, pin = false) {
   popover.classList.add('open');
   popover.classList.toggle('pinned', insightPinned);
   popover.setAttribute('aria-hidden', 'false');
+  if (!dashboardPayload) {
+    $('insight-cause').textContent = 'Dashboard 尚無已驗證資料，無法深鑽。';
+  } else if (!insight) {
+    $('insight-cause').textContent = '此卡片沒有對應的正式來源說明。';
+  }
 }
 
 function hideInsight(force = false) {
@@ -276,6 +303,8 @@ function hideInsight(force = false) {
 
 function initInsightInteractions() {
   document.querySelectorAll('.insight-target').forEach(target => {
+    if (target.dataset.insightBound === 'true') return;
+    target.dataset.insightBound = 'true';
     target.addEventListener('mouseenter', () => {
       if (!insightPinned) {
         clearTimeout(insightEnterTimer);
@@ -300,6 +329,8 @@ function initInsightInteractions() {
       showInsight(target, true);
     });
   });
+  if (insightControlsBound) return;
+  insightControlsBound = true;
   const popover = $('insight-popover');
   popover.addEventListener('mouseenter', () => {
     clearTimeout(insightEnterTimer);
@@ -352,23 +383,25 @@ function generateReport() {
 function toggleSignalDrilldown(active) {
   const panel = $('signal-drilldown');
   const trigger = $('signal-drilldown-btn');
-  const filterLabel = $('case-filter-label');
   const shouldOpen = typeof active === 'boolean'
     ? active
     : !document.body.classList.contains('signal-drilldown-active');
+  if (shouldOpen && !dashboardPayload) {
+    toast('Dashboard 尚無已驗證資料，無法深鑽');
+    return;
+  }
 
   document.body.classList.toggle('signal-drilldown-active', shouldOpen);
   panel.setAttribute('aria-hidden', String(!shouldOpen));
   panel.inert = !shouldOpen;
   trigger.setAttribute('aria-expanded', String(shouldOpen));
-  trigger.textContent = shouldOpen ? '深鑽已套用 ✓' : '深鑽 3 筆關聯案件 →';
-  filterLabel.textContent = shouldOpen ? 'SIGNAL 01 · 3 件' : '全體';
+  trigger.textContent = shouldOpen ? '深鑽已套用 ✓' : '深鑽關聯案件 →';
 
   if (shouldOpen) {
     requestAnimationFrame(() => {
       panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
-    toast('已串接 SIGNAL 01 的部門、案件與治理行動');
+    toast('已顯示風險訊號的關聯證據鏈');
   } else {
     trigger.focus();
     toast('已清除深鑽，恢復全局視圖');
@@ -432,10 +465,33 @@ function normalizeDashboardReply(reply, question) {
 
 async function askDashboardAssistantViaApi(question, output) {
   if (!dashboardChatId) await loadDashboardChatSession();
+  if (!dashboardPayload) throw new Error('Dashboard 尚無已驗證資料');
+  const verifiedPayload = await askDashboardJson(
+    PROMPT_TEMPLATES.dashboardAssistant(question, dashboardPayload),
+    'dashboard_assistant'
+  );
+  if (verifiedPayload.status !== 'success' || typeof verifiedPayload.answer !== 'string' || !verifiedPayload.answer.trim()) {
+    throw new Error(formatAiWarnings(verifiedPayload.warnings) || 'AI 回覆資料不足');
+  }
+  output.classList.remove('typing');
+  output.textContent = verifiedPayload.answer.trim();
+  $('ai-drawer-body').scrollTop = $('ai-drawer-body').scrollHeight;
+  return verifiedPayload;
+  /* Legacy text response flow retained below for reference; unreachable after validated JSON return. */
+
+  const augmentedQuestion = `${question}
+
+【系統強制指令：因顯示介面為極窄側邊欄，請嚴格遵守以下排版規則】
+1. 若系統預設有設定【合規審查分析報告模板】等結構化輸出要求，請在此次回答中「忽略該模板格式」。
+2. 絕對禁止使用 Markdown 語法（禁用表格、粗體、標題、分隔線）。
+3. 絕對禁止使用條列式清單或換行列表。
+4. 請將原本模板中的資訊（如：案號、爭議項目、法條、建議），融合成「流暢的對話散文」來描述。
+5. 請將答案濃縮成 1~3 個簡短段落，直接回答即可。`;
+
   const response = await fetch(`/api/chat/${encodeURIComponent(dashboardChatId)}`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({q: question, streaming: true})
+    body: JSON.stringify({q: augmentedQuestion, streaming: true})
   });
   if (!response.ok) {
     let message = `Chat API ${response.status}`;
@@ -471,7 +527,20 @@ async function askDashboardAssistantViaApi(question, output) {
   }
   if (!answer) throw new Error('Chat API 未回傳可顯示內容');
   output.classList.remove('typing');
-  output.textContent = answer;
+  // 移除常見的 Markdown 符號，確保純文字顯示
+  let cleanAnswer = answer
+    .replace(/\*{1,2}/g, '')       // 移除粗體、斜體星號
+    .replace(/#{1,6}\s?/g, '')     // 移除標題井字號
+    .replace(/\|/g, ' ')           // 將表格分隔線轉為空白
+    .replace(/-{3,}/g, '')         // 移除水平線
+    .replace(/`{1,3}/g, '')        // 移除程式碼區塊標記
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // 移除連結，只保留文字
+    .replace(/^\s*-\s+/gm, '• ')   // 將清單符號轉為圓點
+    .replace(/^\s*\d+\.\s+/gm, match => match) // 保留數字清單，可依需求調整
+    .replace(/\s{2,}/g, ' ')       // 將多個空白替換為單一空白，避免因移除符號造成過多空白
+    .trim();
+
+  output.textContent = cleanAnswer;
   $('ai-drawer-body').scrollTop = $('ai-drawer-body').scrollHeight;
   return answer;
 }
@@ -517,28 +586,66 @@ document.addEventListener('keydown', event => {
 });
 
 async function initializeDashboardApis() {
-  setDashboardApiStatus('loading', '正在連線 Gemini Data API', '初始化聊天室與正式資料來源…');
-  const [chatResult, sourceResult] = await Promise.allSettled([
-    loadDashboardChatSession(),
-    loadExternalBenchmark()
+  setDashboardApiStatus('loading', '正在連線 Gemini Data API', '初始化正式資料來源…');
+  const period = document.querySelector('select[onchange*="handlePeriodChange"]')?.value || 'latest';
+  const [overviewResult, chatResult] = await Promise.allSettled([
+    loadDashboardOverview(period),
+    loadDashboardChatSession()
   ]);
-  const chatReady = chatResult.status === 'fulfilled';
-  const sourceReady = sourceResult.status === 'fulfilled' && sourceResult.value?.mode === 'live';
-  const time = new Intl.DateTimeFormat('zh-TW', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: false
-  }).format(new Date());
-  if (chatReady && sourceReady) {
-    setDashboardApiStatus('ready', 'Gemini Data API 已連線', `${time} · ${dashboardChatTitle || 'Chat'} · 正式資料`);
+  if (overviewResult.status === 'fulfilled') {
+    if (chatResult.status === 'rejected') {
+      console.warn('Dashboard assistant session unavailable:', chatResult.reason);
+      // Chat session failed, so the sampled gap-scan (which needs it) will never
+      // run — leave the card in a clear failure state instead of stuck "載入中…".
+      setText('.kpi-reg strong', '—');
+      setText('.kpi-reg small', 'AI 對話連線失敗，無法完成缺口抽樣分析');
+    } else {
+      loadRegulatoryGapScan();
+    }
     return;
   }
-  const errors = [chatResult, sourceResult]
-    .filter(result => result.status === 'rejected')
-    .map(result => result.reason?.message || String(result.reason));
-  setDashboardApiStatus('error', 'Gemini Data API 部分功能無法載入', errors.join('；') || '正式資料來源未通過驗證');
+  clearDashboardValues();
+  setDashboardApiStatus('error', 'Dashboard 正式資料無法載入', overviewResult.reason?.message || String(overviewResult.reason));
+}
+
+// 「待完成法規缺口」是抽樣估算：隨機抽 10 筆案件交給 AI 逐筆判斷缺口，
+// 不是全量案件的正式盤點；卡片與 insight popover 都必須誠實標示是抽樣。
+async function loadRegulatoryGapScan() {
+  setText('.kpi-reg strong', '分析中');
+  setText('.kpi-reg small', '正在抽樣分析中…');
+  try {
+    const sampleResponse = await fetch('/api/dashboard/case-sample?count=10', {headers: {Accept: 'application/json'}});
+    const sampleData = await sampleResponse.json();
+    if (!sampleResponse.ok || sampleData.status !== 'ok' || !Array.isArray(sampleData.data) || !sampleData.data.length) {
+      throw new Error(sampleData.message || '無法取得案件抽樣');
+    }
+    const prompt = PROMPT_TEMPLATES.regulatoryGapScan(sampleData.data);
+    const result = await askDashboardJson(prompt, 'regulatory_gap_scan');
+    if (result.status !== 'success' || !result.data) throw new Error('AI 回傳資料不足');
+    const total = Number(result.data.total_gap_count);
+    const sampleSize = result.data.sample_size || sampleData.data.length;
+    setText('.kpi-reg strong', Number.isFinite(total) ? total : '—');
+    setText('.kpi-reg small', `抽樣 ${sampleSize} 筆案件推估`);
+    if (typeof INSIGHT_DEFINITIONS !== 'undefined') {
+      const caseGaps = Array.isArray(result.data.cases) ? result.data.cases : [];
+      INSIGHT_DEFINITIONS.regulatory = {
+        kicker: 'REGULATORY GAP SCAN (SAMPLED)',
+        title: '待完成法規缺口',
+        metric: Number.isFinite(total) ? `${total} 項` : '—',
+        cause: `隨機抽樣 ${sampleSize} 筆案件，由 AI 逐筆判斷缺少的證據或法規依據並加總；非全量案件盤點。`,
+        evidence: caseGaps.slice(0, 3).map(c => `${c.case_id}：${(c.missing_evidence || []).join('、') || '無缺口'}`).join('｜') || '無明細',
+        action: '需要更高信心時應擴大抽樣數或改為全量批次分析；目前數字僅供趨勢參考。',
+      };
+    }
+  } catch (error) {
+    setText('.kpi-reg strong', '—');
+    setText('.kpi-reg small', '抽樣分析暫時無法完成');
+    console.warn('待完成法規缺口抽樣分析失敗', error);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  clearDashboardValues();
   initInsightInteractions();
   initializeDashboardApis();
 });

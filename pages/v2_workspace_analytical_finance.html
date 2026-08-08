@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/global.css">
   <link rel="stylesheet" href="../css/workspace.css?v=2.0">
-  <link rel="stylesheet" href="../css/risk_command_center.css?v=12">
+  <link rel="stylesheet" href="../css/risk_command_center.css?v=13">
   <link rel="stylesheet" href="../css/document_preview.css?v=1">
 </head>
 <body>
@@ -85,18 +85,16 @@
       <div class="hero-copy">
         <p class="eyebrow">COMPLIANCE RISK INTELLIGENCE</p>
         <h1>在風險成為裁罰前，<span>先看見它。</span></h1>
-        <p>串聯客訴、KYC、通聯與法規資料，把分散訊號轉成主管可立即核准的治理行動。</p>
+        <p>彙整正式外部申訴與評議統計；內部案件、SLA 與治理資料未連接時明確留白。</p>
         <div class="hero-proof">
-          <span><b>4</b> 大資料域</span><i></i><span><b>446</b> 件案件持續監測</span><i></i><span><b>&lt; 24h</b> 從異常到介入</span>
+          <span><b>—</b> 個正式來源</span><i></i><span><b>—</b> 件外部統計</span><i></i><span><b>—</b> 資料狀態</span>
         </div>
       </div>
       <div class="hero-side">
         <div class="head-controls">
-          <label class="period-control" title="切換觀察時間區間">觀察期間
+          <label class="period-control" title="顯示正式來源目前可用期間">資料期間
             <select onchange="handlePeriodChange(this.value)">
-              <option value="近 14 天">近 14 天</option>
-              <option value="本月">本月</option>
-              <option value="本季">本季</option>
+              <option value="latest">最新正式資料期</option>
             </select>
           </label>
           <div class="data-status loading">
@@ -110,115 +108,68 @@
               <circle class="ring-track" cx="60" cy="60" r="48"></circle>
               <circle class="ring-value" cx="60" cy="60" r="48"></circle>
             </svg>
-            <div><strong>78</strong><span>/ 100</span></div>
+            <div><strong>—</strong><span>/ 100</span></div>
           </div>
-          <div class="risk-index-copy"><span>ENTERPRISE RISK INDEX</span><strong>風險升溫</strong><p>投資型保單訊號推升 12 點</p></div>
-          <div class="avoidance-value">
-            <span>本月可避免曝險（估算）<small>若 2 項治理措施如期完成 · 信心 76%</small></span>
-            <strong>NT$ 520–760 萬</strong>
-          </div>
+            <div class="risk-index-copy"><span>VERIFIED SOURCE COUNT</span><strong>載入中</strong><p>正在查詢並驗證後端資料…</p></div>
         </div>
       </div>
     </section>
 
     <div class="vision-dashboard">
       <section class="executive-kpis" aria-label="關鍵風險指標">
-        <article class="kpi-card kpi-alert insight-target" data-insight="events" tabindex="0"><span>新增高風險事件</span><strong>12</strong><small class="trend-up">↑ 較前 14 天 +35%</small></article>
-        <article class="kpi-card kpi-exposure insight-target" data-insight="exposure" tabindex="0"><span>潛在財務曝險</span><strong>NT$ 680–1,020 萬</strong><small>27 件高風險案件估算</small></article>
-        <article class="kpi-card kpi-sla insight-target" data-insight="sla" tabindex="0"><span>SLA 逾期風險</span><strong>27 件</strong><small class="trend-danger">3 件需於 48 小時內介入</small></article>
-        <article class="kpi-card kpi-reg insight-target" data-insight="regulatory" tabindex="0"><span>待完成法規缺口</span><strong>4 項</strong><small>最近期限：14 天</small></article>
+        <article class="kpi-card kpi-alert insight-target" data-insight="events" tabindex="0"><span>新增高風險事件</span><strong>—</strong><small>載入中…</small></article>
+        <article class="kpi-card kpi-exposure insight-target" data-insight="exposure" tabindex="0"><span>潛在財務曝險</span><strong>—</strong><small>載入中…</small></article>
+        <article class="kpi-card kpi-sla insight-target" data-insight="sla" tabindex="0"><span>SLA 逾期風險</span><strong>—</strong><small>載入中…</small></article>
+        <article class="kpi-card kpi-reg insight-target" data-insight="regulatory" tabindex="0"><span>待完成法規缺口</span><strong>—</strong><small>載入中…</small></article>
       </section>
 
       <div class="decision-grid">
         <section class="vision-card priority-brief signature-card insight-target" data-insight="signal" tabindex="0">
           <div class="panel-header priority-header">
-            <div><span class="priority-label">本週重大異常</span><h2>投資型保單 × 高齡客群</h2></div>
-            <span class="review-badge">SIGNAL 01 · 待覆核</span>
+            <div><span class="priority-label">重大異常</span><h2>載入中…</h2></div>
+            <span class="review-badge">待驗證</span>
           </div>
-          <p class="brief-lead">近 14 天相關爭議由 31 件上升至 42 件，其中 65 歲以上客戶占 82%；主要集中於適合度評估與風險說明紀錄。</p>
+          <p class="brief-lead">正在取得重大風險訊號…</p>
           <div class="brief-body">
-            <div class="trend-chart" aria-label="近四週案件趨勢示意圖">
-              <div class="chart-labels"><span>近四週案件趨勢</span><strong>+35%</strong></div>
-              <div class="bar-set"><i style="height:38%"></i><i style="height:48%"></i><i style="height:62%"></i><i class="active" style="height:84%"></i></div>
+            <div class="trend-chart" aria-label="案件趨勢">
+              <div class="chart-labels"><span>案件趨勢</span><strong>—</strong></div>
+              <div class="bar-set"><i style="height:0"></i><i style="height:0"></i><i style="height:0"></i><i class="active" style="height:0"></i></div>
               <div class="week-labels"><span>W1</span><span>W2</span><span>W3</span><span>W4</span></div>
             </div>
             <dl class="evidence-list">
-              <div><dt>影響範圍</dt><dd>8 個分行 · 17 位理專</dd></div>
-              <div><dt>主要缺口</dt><dd>KYC 與錄音紀錄不完整</dd></div>
-              <div><dt>判定信心</dt><dd>82% · 中高</dd></div>
+              <div><dt>影響範圍</dt><dd>—</dd></div>
+              <div><dt>主要缺口</dt><dd>—</dd></div>
+              <div><dt>判定信心</dt><dd>—</dd></div>
               <div class="external-benchmark insight-target" data-insight="benchmark" tabindex="0"><dt>外部產業基準</dt><dd><span id="benchmark-value">載入 Gemini Data…</span></dd></div>
             </dl>
           </div>
-          <div class="source-note"><span>資料來源：客訴系統、KYC 稽核結果、通聯紀錄索引</span><div class="source-actions"><button class="text-button" onclick="toast('開啟指標計算與來源說明（展示）')">計算依據</button><button class="signal-drilldown-btn" id="signal-drilldown-btn" onclick="toggleSignalDrilldown(true)" aria-expanded="false">深鑽 3 筆關聯案件 →</button></div></div>
+          <div class="source-note"><span>資料來源將於 JSON 驗證後顯示</span><div class="source-actions"><button class="text-button" onclick="toast('指標計算與來源需先通過後端驗證')">計算依據</button><button class="signal-drilldown-btn" id="signal-drilldown-btn" onclick="toggleSignalDrilldown(true)" aria-expanded="false">深鑽關聯案件 →</button></div></div>
         </section>
 
-        <section class="vision-card action-panel">
-          <div class="panel-header"><div><span class="section-kicker">DECISION REQUIRED</span><h2>待核准治理行動</h2></div><span class="tag tag-warning">2 項</span></div>
-          <div class="approval-list">
-            <article class="signal-linked-action" data-signal="signal-01">
-              <div class="approval-top"><span class="action-meta urgent">48 小時內</span><span>風險降低：高</span></div>
-              <h3>提高高齡客戶銷售覆核層級</h3>
-              <p>指定 8 個異常分行於銷售前增加主管覆核，不直接全面停售。</p>
-              <div class="owner-row"><span>提案：財富管理處</span><button onclick="openDocumentPreview('approval-action')">預覽並核准</button></div>
-            </article>
-            <article class="signal-linked-action" data-signal="signal-01">
-              <div class="approval-top"><span class="action-meta">7 天內</span><span>影響案件：42 件</span></div>
-              <h3>啟動通聯與 KYC 專案抽查</h3>
-              <p>先抽查高風險理專近三個月紀錄，確認問題是否具系統性。</p>
-              <div class="owner-row"><span>負責：法遵稽核組</span><button onclick="openDocumentPreview('investigation-order')">預覽並建立</button></div>
-            </article>
-          </div>
-          <p class="approval-disclaimer">系統建議僅供決策輔助，所有治理措施須經權責主管覆核。</p>
+        <section class="vision-card action-panel source-ranking-panel">
+          <div class="panel-header"><div><span class="section-kicker">VERIFIED SOURCE RANKING</span><h2>正式資料排行</h2></div><span class="tag tag-warning">—</span></div>
+          <div class="approval-list source-ranking-list">正在取得正式來源排行…</div>
+          <p class="approval-disclaimer">排行只反映正式外部統計，不推論本公司內部案件、成因或治理狀態。</p>
         </section>
       </div>
 
       <section class="signal-drilldown" id="signal-drilldown" aria-hidden="true" inert>
         <div class="drilldown-head">
-          <div><span class="drilldown-breadcrumb">全局總覽 / SIGNAL 01 / 關聯案件</span><h2>投資型保單 × 高齡客群｜風險證據鏈</h2><p>已同步鎖定受影響部門、3 筆高風險案件與 2 項治理行動。</p></div>
+          <div><span class="drilldown-breadcrumb">全局總覽 / 風險訊號 / 關聯案件</span><h2>—</h2><p>尚未取得已驗證資料。</p></div>
           <button onclick="toggleSignalDrilldown(false)" aria-label="清除 SIGNAL 01 深鑽">清除深鑽 ×</button>
         </div>
         <div class="drilldown-flow" aria-label="風險訊號到治理行動流程">
-          <article><span>01 · 異常訊號</span><strong>客訴 +35%</strong><small>31 → 42 件</small></article>
+          <article><span>01 · 異常訊號</span><strong>—</strong><small>—</small></article>
           <i aria-hidden="true">→</i>
-          <article><span>02 · 影響範圍</span><strong>8 個分行</strong><small>17 位理專</small></article>
+          <article><span>02 · 影響範圍</span><strong>—</strong><small>—</small></article>
           <i aria-hidden="true">→</i>
-          <article><span>03 · 關聯案件</span><strong>3 件高風險</strong><small>曝險 155–265 萬</small></article>
+          <article><span>03 · 關聯案件</span><strong>—</strong><small>—</small></article>
           <i aria-hidden="true">→</i>
-          <article><span>04 · 治理行動</span><strong>2 項待核准</strong><small>可避免曝險 520–760 萬</small></article>
+          <article><span>04 · 治理行動</span><strong>—</strong><small>—</small></article>
         </div>
         <div class="drilldown-status"><span class="status-dot"></span>深鑽已套用：下方同步高亮「財富管理處」、關聯案件與治理行動</div>
       </section>
 
-      <div class="operational-grid" id="case-drilldown">
-        <section class="vision-card operational-panel">
-          <div class="panel-header"><div><span class="section-kicker">OPERATIONS</span><h2>各部門處理達標率（SLA）</h2></div><button class="text-button" onclick="toast('開啟部門明細（展示）')">檢視詳情</button></div>
-          <div class="panel-content">
-            <div class="progress-row signal-linked-department insight-target" data-signal="signal-01" data-insight="wealth-sla" tabindex="0"><div class="linked-indicator">SIGNAL 01 主要影響部門</div><div class="progress-info"><strong>財富管理處 <em>142 件</em></strong><span>12 天 · 95%</span></div><div class="progress-track"><div class="progress-fill" style="width:95%;background:var(--green)"></div></div></div>
-            <div class="progress-row insight-target" data-insight="consumer-sla" tabindex="0"><div class="progress-info"><strong>消費金融處 <em>89 件</em></strong><span>18 天 · 82%</span></div><div class="progress-track"><div class="progress-fill" style="width:82%;background:var(--amber)"></div></div></div>
-            <div class="progress-row insight-target" data-insight="card-sla" tabindex="0"><div class="progress-info"><strong>信用卡部 <em>215 件</em></strong><span class="trend-danger">28 天 · 64%（需介入）</span></div><div class="progress-track"><div class="progress-fill" style="width:64%;background:var(--red)"></div></div></div>
-          </div>
-        </section>
-
-        <section class="vision-card operational-panel related-cases-panel">
-          <div class="panel-header"><div><span class="section-kicker">EXCEPTIONS</span><h2>高風險超時案件 <em id="case-filter-label">全體</em></h2></div><button class="text-button" onclick="toast('已準備匯出名單（展示）')">匯出名單</button></div>
-          <div class="panel-content"><table class="overdue-table"><thead><tr><th>案件</th><th>爭議類型</th><th>期限</th><th>曝險區間</th><th>負責人</th></tr></thead><tbody>
-            <tr class="case-row signal-related primary-case insight-target" data-signal="signal-01" data-insight="case-c001" tabindex="0"><td class="case-id">C001-INV</td><td>適合度評估</td><td><span class="tag tag-danger">剩 2 天</span></td><td class="fine-amt">90–150 萬</td><td>林專員</td></tr>
-            <tr class="case-row signal-related insight-target" data-signal="signal-01" data-insight="case-c077" tabindex="0"><td class="case-id">C077-INV</td><td>高齡客群揭露</td><td><span class="tag tag-danger">剩 4 天</span></td><td class="fine-amt">40–70 萬</td><td>李襄理</td></tr>
-            <tr class="case-row signal-related insight-target" data-signal="signal-01" data-insight="case-c104" tabindex="0"><td class="case-id">C104-INV</td><td>KYC 文件缺漏</td><td><span class="tag tag-warning">剩 7 天</span></td><td class="fine-amt">25–45 萬</td><td>王專員</td></tr>
-            <tr class="case-row unrelated-case insight-target" data-insight="case-c142" tabindex="0"><td class="case-id">C142-CRD</td><td>不當催收</td><td><span class="tag tag-danger">剩 3 天</span></td><td class="fine-amt">45–75 萬</td><td>陳副理</td></tr>
-            <tr class="case-row unrelated-case insight-target" data-insight="case-c088" tabindex="0"><td class="case-id">C088-INS</td><td>風險說明</td><td><span class="tag tag-warning">剩 5 天</span></td><td class="fine-amt">20–40 萬</td><td>張專員</td></tr>
-          </tbody></table></div>
-        </section>
-      </div>
-
-      <section class="vision-card regulatory-panel">
-        <div class="panel-header"><div><span class="section-kicker">REGULATORY READINESS</span><h2>法規缺口與改善進度</h2></div><button class="text-button" onclick="toast('開啟法規追蹤台帳（展示）')">查看台帳</button></div>
-        <div class="reg-grid">
-          <article><span class="action-meta urgent">倒數 14 天</span><div><h3>公平待客作業調整</h3><p>高齡客戶錄音覆核流程 · 完成度 68%</p></div><strong>負責：消費者保護組</strong></article>
-          <article><span class="action-meta completed">已生效</span><div><h3>實質受益人審查機制</h3><p>系統規則與抽查報表 · 完成度 92%</p></div><strong>負責：洗防辦公室</strong></article>
-        </div>
-        <p class="source-note regulatory-source">示範法規資訊｜正式使用時應連結主管機關原文、生效日期與內部法遵意見。</p>
-      </section>
     </div>
   </main>
 
@@ -233,7 +184,7 @@
       <div class="ai-welcome" id="ai-welcome">
         <div class="assistant-mark">G</div>
         <h2><span>王副總，您好</span>想從哪個風險開始？</h2>
-        <p>我可以根據目前儀表板的示範資料，協助摘要、比較與整理決策問題。</p>
+        <p>我只會使用目前儀表板已通過驗證的後端資料，協助摘要、比較與整理決策問題。</p>
         <div class="ai-suggestions">
           <button onclick="askDashboardAssistant(this.textContent)">為什麼投資型保單風險上升？</button>
           <button onclick="askDashboardAssistant(this.textContent)">今天最需要核准哪一項行動？</button>
@@ -257,9 +208,8 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="../js/config.js?v=2"></script>
-  <script src="../js/analytical_source_data.js?v=2"></script>
+  <script src="../js/config.js?v=11"></script>
   <script src="../js/document_preview.js?v=4"></script>
-  <script src="../js/risk_command_center.js?v=13"></script>
+  <script src="../js/risk_command_center.js?v=19"></script>
 </body>
 </html>

@@ -120,6 +120,11 @@ body {
   border-color: #edc5ca;
   color: var(--red);
 }
+.data-status.partial {
+  border-color: #f2cf83;
+  color: #9a6700;
+  background: #fffaf0;
+}
 /* Vision Dashboard Styles */
 .vision-dashboard {
   display: flex;
@@ -1656,36 +1661,6 @@ body {
   margin: 0;
   color: rgba(255, 255, 255, 0.56);
   font-size: 0.64rem;
-}
-
-.avoidance-value {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-top: 0.72rem;
-  border-top: 1px solid rgba(228, 202, 131, 0.18);
-}
-
-.avoidance-value > span {
-  color: #f0d792;
-  font-size: 0.68rem;
-  font-weight: 700;
-}
-
-.avoidance-value small {
-  display: block;
-  margin-top: 0.22rem;
-  color: rgba(255, 255, 255, 0.44);
-  font-size: 0.55rem;
-  font-weight: 500;
-}
-
-.avoidance-value > strong {
-  color: #fff;
-  font: 700 1.02rem Outfit, sans-serif;
-  white-space: nowrap;
 }
 
 .vision-dashboard {

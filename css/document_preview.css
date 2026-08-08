@@ -56,6 +56,44 @@ body.document-preview-open { overflow: hidden; }
 .document-loading span { margin-top: .25rem; color: #7d8795; font-size: .58rem; }
 @keyframes document-spin { to { transform: rotate(360deg); } }
 
+.validation-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(7, 18, 34, 0.72);
+  backdrop-filter: blur(8px);
+}
+.validation-overlay.open { display: flex; }
+body.validation-open { overflow: hidden; }
+.validation-shell { display: grid; grid-template-rows: auto 1fr; width: min(760px, 94vw); height: min(720px, 88vh); overflow: hidden; border: 1px solid rgba(197,160,89,.4); border-radius: 16px; background: #fff; box-shadow: 0 28px 90px rgba(0,0,0,.34); }
+.validation-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 60px; padding: .7rem 1rem; background: linear-gradient(125deg,#0d203d,#183d6e); color: #fff; }
+.validation-title span, .validation-title strong { display: block; }
+.validation-title span { color: #ddc37a; font-size: .56rem; font-weight: 800; letter-spacing: .09em; }
+.validation-title strong { margin-top: .15rem; font-size: .86rem; }
+.validation-close { display: grid; place-items: center; width: 31px; height: 31px; border: 1px solid rgba(255,255,255,.16); border-radius: 50%; background: rgba(255,255,255,.08); color: #fff; font-size: 1.05rem; cursor: pointer; }
+.validation-body { overflow-y: auto; padding: 1rem 1.25rem 1.5rem; background: #f8f9fb; color: #1f2937; }
+.validation-body h3 { margin: 1rem 0 .5rem; color: #17355d; font-size: .82rem; }
+.validation-body h3:first-child { margin-top: 0; }
+.validation-block { margin-bottom: .8rem; padding: .7rem .8rem; border: 1px solid #e2e6ec; border-radius: 10px; background: #fff; }
+.validation-block h4 { margin: 0 0 .4rem; color: #17355d; font-size: .76rem; font-weight: 700; }
+.validation-meta { color: #7d8793; font-size: .66rem; font-weight: 500; margin: .3rem 0; }
+.validation-error { color: #b3261e; font-size: .74rem; }
+.validation-empty { color: #64748b; font-size: .78rem; line-height: 1.6; }
+.validation-cypher { margin: .3rem 0; }
+.validation-cypher summary { cursor: pointer; color: #8b6a2d; font-size: .66rem; font-weight: 700; }
+.validation-cypher pre { margin: .4rem 0 0; padding: .5rem .6rem; border-radius: 6px; background: #12213a; color: #cfe0ff; font-size: .66rem; line-height: 1.5; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+.validation-table-scroll { overflow-x: auto; margin-top: .4rem; }
+.validation-table-scroll table { width: 100%; border-collapse: collapse; font-size: .72rem; }
+.validation-table-scroll th, .validation-table-scroll td { padding: .35rem .5rem; border: 1px solid #e2e6ec; text-align: left; white-space: nowrap; }
+.validation-table-scroll th { background: #f1f4f7; color: #40526b; }
+.validation-doc-content { margin: 0; padding: .6rem .7rem; border-radius: 6px; background: #f1f4f7; color: #334155; font-size: .72rem; line-height: 1.7; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow-y: auto; font-family: 'Noto Sans TC','Microsoft JhengHei',sans-serif; }
+.validation-loading { display: flex; align-items: center; gap: .6rem; padding: 1.5rem 0; color: #64748b; font-size: .78rem; }
+.validation-loading i { display: block; width: 20px; height: 20px; border: 2.5px solid #d7dce4; border-top-color: #c5a059; border-radius: 50%; animation: document-spin .8s linear infinite; }
+
 @media print {
   body > *:not(.document-preview-overlay) { display: none !important; }
   .document-preview-overlay { position: static; display: block; padding: 0; background: #fff; }
